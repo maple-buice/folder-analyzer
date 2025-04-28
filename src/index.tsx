@@ -31,7 +31,7 @@ const server = serve({
     },
 
     "/api/analyze-folder/:path": async (req) => {
-      const folderPath = path.join(__dirname, req.params.path);
+      const folderPath = req.params.path;
 
       const processFiles = (folderPath: string) => {
         const fileMap: any = {};
@@ -41,7 +41,8 @@ const server = serve({
           const filePath = path.join(folderPath, file);
           const stats = fs.statSync(filePath);
 
-          const pathParts = filePath.split(path.sep);
+          const relativePath = path.relative(folderPath, filePath);
+          const pathParts = relativePath.split(path.sep);
           let currentLevel = fileMap;
 
           pathParts.forEach((part, index) => {

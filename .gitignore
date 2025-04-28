@@ -29,6 +29,9 @@ build/
 # Coverage
 coverage/
 
+# Test data
+test/
+
 # Misc
 *.bak
 *.old
