@@ -61,6 +61,7 @@ GET /api/analyze-folder/:path
 ```
 
 Returns JSON:
+
 ```json
 {
   "message": "Folder analysis complete",
@@ -95,4 +96,3 @@ Contributions are welcome! Please open issues or pull requests for bugs, feature
 ## Screenshot
 
 ![Screenshot](docs/screenshot.png)
-

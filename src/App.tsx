@@ -151,7 +151,8 @@ const DrilldownAlert: React.FC = () => (
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
     </svg>
     <span>
-      <strong className="font-semibold">Drilldown enabled:</strong> Click a folder to zoom in. Use <b>Back</b> to zoom out.
+      <strong className="font-semibold">Drilldown enabled:</strong> Click a folder to zoom in. Use{' '}
+      <b>Back</b> to zoom out.
     </span>
   </div>
 );
@@ -310,7 +311,8 @@ const App: React.FC = () => {
           Folder Sunburst Explorer
         </h1>
         <p className="text-gray-400 max-w-2xl mx-auto text-sm px-4">
-          Instantly visualize your disk usage. Analyze any folder, then filter and drill down to find large files and folders fast.
+          Instantly visualize your disk usage. Analyze any folder, then filter and drill down to
+          find large files and folders fast.
         </p>
       </header>
 
@@ -350,14 +352,24 @@ const App: React.FC = () => {
                 className="flex items-center bg-gray-800 text-gray-300 px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm border border-gray-700/50"
                 aria-label="Back"
               >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
                 Back
               </button>
             )}
             {error && (
-              <div className="bg-red-950/40 text-red-200 rounded-lg px-4 py-3 border border-red-900/20" role="alert">
+              <div
+                className="bg-red-950/40 text-red-200 rounded-lg px-4 py-3 border border-red-900/20"
+                role="alert"
+              >
                 {error}
               </div>
             )}

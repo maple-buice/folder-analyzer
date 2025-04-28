@@ -260,7 +260,7 @@ describe('processFiles - additional coverage', () => {
       ) as unknown as typeof fs.readdirSync
     );
     mockFs.statSync.mockImplementation(
-      (pathArg: fs.PathLike) => ({ isFile: () => true, size: 0 } as fs.Stats)
+      (pathArg: fs.PathLike) => ({ isFile: () => true, size: 0 }) as fs.Stats
     );
     const result = processFiles('/zero');
     expect(result).toEqual({
