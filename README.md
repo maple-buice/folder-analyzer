@@ -52,3 +52,47 @@ bun start
 - [Tailwind CSS](https://tailwindcss.com/) (styling)
 - [Nivo Sunburst](https://nivo.rocks/sunburst/) (visualization)
 
+## API Example
+
+The backend exposes a single endpoint:
+
+```
+GET /api/analyze-folder/:path
+```
+
+Returns JSON:
+```json
+{
+  "message": "Folder analysis complete",
+  "tree": {
+    "id": "/path/to/folder",
+    "name": "root",
+    "children": [
+      { "id": "/path/to/folder/file.txt", "name": "file.txt", "size": 1234, "key": "/path/to/folder/file.txt" },
+      { "id": "/path/to/folder/subdir", "name": "subdir", "children": [...], "size": 5678, "key": "/path/to/folder/subdir" }
+    ],
+    "size": 6912,
+    "key": "/path/to/folder"
+  }
+}
+```
+
+## Development
+
+- Run lint: `bun run lint`
+- Run formatter: `bun run format`
+- Type-check: `bun run type-check`
+- Run tests: `bun run test`
+
+## Contributing
+
+Contributions are welcome! Please open issues or pull requests for bugs, features, or improvements.
+
+1. Fork the repo and create a branch.
+2. Run lint, format, and type-check before submitting.
+3. Add/adjust tests for new features.
+
+## Screenshot
+
+![Screenshot](docs/screenshot.png)
+

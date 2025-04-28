@@ -1,18 +1,13 @@
-import { processFiles, TreeNode, calculateSize } from './index';
+import { processFiles } from './index';
+import { TreeNode } from './types';
+import { calculateSize } from './utils/tree';
 import * as fs from 'fs';
 import * as path from 'path';
 
 jest.mock('fs');
-
 const mockFs = fs as jest.Mocked<typeof fs>;
 
-// --- DIAGNOSTIC LOGGING AND TYPE CHECKS ---
-function log(...args: any[]) {
-  // eslint-disable-next-line no-console
-  console.log('[DIAGNOSTIC]', ...args);
-}
-
-// Helper to create a mock Dirent object for folder analysis
+// --- Helper: Create a mock Dirent object for folder analysis ---
 function createMockDirent(name: string, isFile: boolean): fs.Dirent {
   return {
     name,
@@ -26,10 +21,8 @@ function createMockDirent(name: string, isFile: boolean): fs.Dirent {
   } as unknown as fs.Dirent;
 }
 
-mockFs.readdirSync.mockReset();
-
+// --- Mock fs.readdirSync and fs.statSync for various scenarios ---
 const readdirSyncDirentMock = jest.fn((pathArg: fs.PathLike, options: any) => {
-  log('readdirSyncDirentMock called with:', pathArg, options);
   const pathStr = pathArg.toString();
   let result: fs.Dirent[] = [];
   if (pathStr === '/test') {
@@ -41,12 +34,10 @@ const readdirSyncDirentMock = jest.fn((pathArg: fs.PathLike, options: any) => {
   } else if (pathStr === '/test/folder1') {
     result = [createMockDirent('file3.txt', true)];
   }
-  log('readdirSyncDirentMock returning:', result);
   return result;
 });
 
 const readdirSyncStringMock = jest.fn((pathArg: fs.PathLike, options?: any) => {
-  log('readdirSyncStringMock called with:', pathArg, options);
   const pathStr = pathArg.toString();
   let result: string[] = [];
   if (pathStr === '/test') {
@@ -54,7 +45,6 @@ const readdirSyncStringMock = jest.fn((pathArg: fs.PathLike, options?: any) => {
   } else if (pathStr === '/test/folder1') {
     result = ['file3.txt'];
   }
-  log('readdirSyncStringMock returning:', result);
   return result;
 });
 
@@ -76,41 +66,52 @@ mockFs.statSync.mockImplementation((path: fs.PathLike) => {
   } as fs.Stats;
 });
 
+// --- Tests for processFiles (folder analysis) ---
 describe('processFiles (folder analysis)', () => {
-  it('should calculate sizes correctly for a simple folder', () => {
+  it('returns correct structure and sizes for a simple folder', () => {
     const folderPath = '/test';
     const result = processFiles(folderPath);
     expect(result).toEqual({
+      id: '/test',
       name: 'root',
       children: [
-        { name: 'file1.txt', size: 100, key: '/test/file1.txt' },
-        { name: 'file2.txt', size: 100, key: '/test/file2.txt' },
+        { id: '/test/file1.txt', name: 'file1.txt', size: 100, key: '/test/file1.txt' },
+        { id: '/test/file2.txt', name: 'file2.txt', size: 100, key: '/test/file2.txt' },
         {
+          id: '/test/folder1',
           name: 'folder1',
-          children: [{ name: 'file3.txt', size: 100, key: '/test/folder1/file3.txt' }],
+          children: [
+            {
+              id: '/test/folder1/file3.txt',
+              name: 'file3.txt',
+              size: 100,
+              key: '/test/folder1/file3.txt',
+            },
+          ],
           size: 100,
           key: '/test/folder1',
         },
       ],
       size: 300,
-      key: 'root',
+      key: '/test',
     });
   });
 });
 
 describe('calculateSize', () => {
-  it('should return the size of a node with no children', () => {
-    const node: TreeNode = { name: 'file.txt', size: 100, key: 'file.txt' };
+  it('returns the size of a node with no children', () => {
+    const node: TreeNode = { id: 'file.txt', name: 'file.txt', size: 100, key: 'file.txt' };
     const size = calculateSize(node);
     expect(size).toBe(100);
   });
 
-  it('should calculate the total size of a node with multiple children', () => {
+  it('calculates the total size of a node with multiple children', () => {
     const node: TreeNode = {
+      id: 'folder',
       name: 'folder',
       children: [
-        { name: 'file1.txt', size: 100, key: 'file1.txt' },
-        { name: 'file2.txt', size: 200, key: 'file2.txt' },
+        { id: 'file1.txt', name: 'file1.txt', size: 100, key: 'file1.txt' },
+        { id: 'file2.txt', name: 'file2.txt', size: 200, key: 'file2.txt' },
       ],
       size: 0,
       key: 'folder',
@@ -119,21 +120,24 @@ describe('calculateSize', () => {
     expect(size).toBe(300);
   });
 
-  it('should calculate the total size of a node with nested children', () => {
+  it('calculates the total size of a node with nested children', () => {
     const node: TreeNode = {
+      id: 'root',
       name: 'root',
       children: [
         {
+          id: 'folder1',
           name: 'folder1',
-          children: [{ name: 'file1.txt', size: 100, key: 'file1.txt' }],
+          children: [{ id: 'file1.txt', name: 'file1.txt', size: 100, key: 'file1.txt' }],
           size: 0,
           key: 'folder1',
         },
         {
+          id: 'folder2',
           name: 'folder2',
           children: [
-            { name: 'file2.txt', size: 200, key: 'file2.txt' },
-            { name: 'file3.txt', size: 300, key: 'file3.txt' },
+            { id: 'file2.txt', name: 'file2.txt', size: 200, key: 'file2.txt' },
+            { id: 'file3.txt', name: 'file3.txt', size: 300, key: 'file3.txt' },
           ],
           size: 0,
           key: 'folder2',
@@ -147,7 +151,7 @@ describe('calculateSize', () => {
   });
 });
 
-// Helper for additional tests to mock readdirSync for both overloads
+// --- Helper for additional tests to mock readdirSync for both overloads ---
 function makeReaddirSyncMock(mapping: Record<string, string[]>, fileSet: Set<string> = new Set()) {
   return (pathArg: fs.PathLike, options?: any) => {
     const pathStr = pathArg.toString();
@@ -183,20 +187,21 @@ describe('processFiles - additional coverage', () => {
     });
   });
 
-  it('should handle an empty folder', () => {
+  it('returns correct structure for an empty folder', () => {
     mockFs.readdirSync.mockImplementation(
       makeReaddirSyncMock({ '/empty': [] }) as unknown as typeof fs.readdirSync
     );
     const result = processFiles('/empty');
     expect(result).toEqual({
+      id: '/empty',
       name: 'root',
       children: [],
       size: 0,
-      key: 'root',
+      key: '/empty',
     });
   });
 
-  it('should handle a deeply nested folder structure', () => {
+  it('returns correct structure for a deeply nested folder', () => {
     const mapping = {
       '/deep': ['level1'],
       '/deep/level1': ['level2'],
@@ -216,14 +221,24 @@ describe('processFiles - additional coverage', () => {
     });
     const result = processFiles('/deep');
     expect(result).toEqual({
+      id: '/deep',
       name: 'root',
       children: [
         {
+          id: '/deep/level1',
           name: 'level1',
           children: [
             {
+              id: '/deep/level1/level2',
               name: 'level2',
-              children: [{ name: 'file.txt', size: 42, key: '/deep/level1/level2/file.txt' }],
+              children: [
+                {
+                  id: '/deep/level1/level2/file.txt',
+                  name: 'file.txt',
+                  size: 42,
+                  key: '/deep/level1/level2/file.txt',
+                },
+              ],
               size: 42,
               key: '/deep/level1/level2',
             },
@@ -233,11 +248,11 @@ describe('processFiles - additional coverage', () => {
         },
       ],
       size: 42,
-      key: 'root',
+      key: '/deep',
     });
   });
 
-  it('should handle files with size 0', () => {
+  it('returns correct structure for files with size 0', () => {
     mockFs.readdirSync.mockImplementation(
       makeReaddirSyncMock(
         { '/zero': ['zero.txt'] },
@@ -245,18 +260,19 @@ describe('processFiles - additional coverage', () => {
       ) as unknown as typeof fs.readdirSync
     );
     mockFs.statSync.mockImplementation(
-      (pathArg: fs.PathLike) => ({ isFile: () => true, size: 0 }) as fs.Stats
+      (pathArg: fs.PathLike) => ({ isFile: () => true, size: 0 } as fs.Stats)
     );
     const result = processFiles('/zero');
     expect(result).toEqual({
+      id: '/zero',
       name: 'root',
-      children: [{ name: 'zero.txt', size: 0, key: '/zero/zero.txt' }],
+      children: [{ id: '/zero/zero.txt', name: 'zero.txt', size: 0, key: '/zero/zero.txt' }],
       size: 0,
-      key: 'root',
+      key: '/zero',
     });
   });
 
-  it('should handle a folder with only folders', () => {
+  it('returns correct structure for a folder with only folders', () => {
     mockFs.readdirSync.mockImplementation(
       makeReaddirSyncMock({
         '/folders': ['a', 'b'],
@@ -272,17 +288,18 @@ describe('processFiles - additional coverage', () => {
     });
     const result = processFiles('/folders');
     expect(result).toEqual({
+      id: '/folders',
       name: 'root',
       children: [
-        { name: 'a', children: [], size: 0, key: '/folders/a' },
-        { name: 'b', children: [], size: 0, key: '/folders/b' },
+        { id: '/folders/a', name: 'a', children: [], size: 0, key: '/folders/a' },
+        { id: '/folders/b', name: 'b', children: [], size: 0, key: '/folders/b' },
       ],
       size: 0,
-      key: 'root',
+      key: '/folders',
     });
   });
 
-  it('should handle a folder with only files', () => {
+  it('returns correct structure for a folder with only files', () => {
     mockFs.readdirSync.mockImplementation(
       makeReaddirSyncMock(
         { '/files': ['f1.txt', 'f2.txt'] },
@@ -297,17 +314,18 @@ describe('processFiles - additional coverage', () => {
     });
     const result = processFiles('/files');
     expect(result).toEqual({
+      id: '/files',
       name: 'root',
       children: [
-        { name: 'f1.txt', size: 10, key: '/files/f1.txt' },
-        { name: 'f2.txt', size: 10, key: '/files/f2.txt' },
+        { id: '/files/f1.txt', name: 'f1.txt', size: 10, key: '/files/f1.txt' },
+        { id: '/files/f2.txt', name: 'f2.txt', size: 10, key: '/files/f2.txt' },
       ],
       size: 20,
-      key: 'root',
+      key: '/files',
     });
   });
 
-  it('should handle a folder with mixed files and folders', () => {
+  it('returns correct structure for a folder with mixed files and folders', () => {
     mockFs.readdirSync.mockImplementation(
       makeReaddirSyncMock(
         {
@@ -325,18 +343,22 @@ describe('processFiles - additional coverage', () => {
     });
     const result = processFiles('/mixed');
     expect(result).toEqual({
+      id: '/mixed',
       name: 'root',
       children: [
-        { name: 'file.txt', size: 5, key: '/mixed/file.txt' },
+        { id: '/mixed/file.txt', name: 'file.txt', size: 5, key: '/mixed/file.txt' },
         {
+          id: '/mixed/sub',
           name: 'sub',
-          children: [{ name: 'inner.txt', size: 5, key: '/mixed/sub/inner.txt' }],
+          children: [
+            { id: '/mixed/sub/inner.txt', name: 'inner.txt', size: 5, key: '/mixed/sub/inner.txt' },
+          ],
           size: 5,
           key: '/mixed/sub',
         },
       ],
       size: 10,
-      key: 'root',
+      key: '/mixed',
     });
   });
 });

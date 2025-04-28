@@ -2,13 +2,8 @@ import { serve } from 'bun';
 import index from './index.html';
 import fs from 'fs';
 import path from 'path';
-
-export type TreeNode = {
-  name: string;
-  children?: TreeNode[]; // always array for folders, omitted for files
-  size: number;
-  key: string;
-};
+import { TreeNode, ApiResponse } from './types';
+import { calculateSize } from './utils/tree';
 
 const server = serve({
   routes: {
@@ -17,40 +12,28 @@ const server = serve({
 
     '/api/analyze-folder/:path': async (req: { params: { path: string } }) => {
       const folderPath = req.params.path;
-
-      const fileMap = processFiles(folderPath);
-      const tree: TreeNode = {
-        name: 'root',
-        children: fileMap.children,
-        size: fileMap.size || 0,
-        key: 'root',
-      };
-      if (fileMap.size === undefined) {
-        const calculateSize = (node: TreeNode): number => {
-          if (!node.children) return node.size || 0;
-          const children = Object.values(node.children);
-          const size = children.reduce(
-            (acc: number, child: TreeNode) => acc + calculateSize(child),
-            0
-          );
-          node.size = size;
-          return size;
-        };
-        calculateSize(tree);
+      try {
+        if (!fs.existsSync(folderPath)) {
+          return Response.json({ message: 'Folder does not exist', tree: null }, { status: 404 });
+        }
+        const stats = fs.statSync(folderPath);
+        if (!stats.isDirectory()) {
+          return Response.json({ message: 'Path is not a directory', tree: null }, { status: 400 });
+        }
+        const tree = processFiles(folderPath);
+        return Response.json({ message: 'Folder analysis complete', tree } satisfies ApiResponse);
+      } catch (err: any) {
+        return Response.json(
+          { message: 'Error analyzing folder: ' + err.message, tree: null },
+          { status: 500 }
+        );
       }
-
-      return Response.json({ message: 'Folder analysis complete', tree });
     },
   },
   development: process.env.NODE_ENV !== 'production',
 });
 
 console.log(`🚀 Folder Sunburst Explorer server running at ${server.url}`);
-
-function log(...args: any[]) {
-  // eslint-disable-next-line no-console
-  console.log('[DIAGNOSTIC]', ...args);
-}
 
 export const processFiles = (folderPath: string): TreeNode => {
   const fileMap: TreeNode[] = [];
@@ -63,6 +46,7 @@ export const processFiles = (folderPath: string): TreeNode => {
 
     if (stats.isFile()) {
       fileMap.push({
+        id: filePath,
         name: fileName,
         size: stats.size,
         key: filePath,
@@ -71,6 +55,7 @@ export const processFiles = (folderPath: string): TreeNode => {
       // Directory: recurse
       const childTree = processFiles(filePath);
       fileMap.push({
+        id: filePath,
         name: fileName,
         children: childTree.children || [],
         size: 0, // will be calculated
@@ -79,8 +64,9 @@ export const processFiles = (folderPath: string): TreeNode => {
     }
   });
 
-  // Use the full folderPath as the key for the root node
+  // Use the full folderPath as the id/key for the root node
   const root: TreeNode = {
+    id: folderPath,
     name: 'root',
     children: fileMap,
     size: 0,
@@ -88,15 +74,4 @@ export const processFiles = (folderPath: string): TreeNode => {
   };
   calculateSize(root);
   return root;
-};
-
-export const calculateSize = (node: TreeNode): number => {
-  if (!node.children) return node.size || 0;
-  // Folder node
-  const size = node.children.reduce(
-    (acc: number, child: TreeNode) => acc + calculateSize(child),
-    0
-  );
-  node.size = size;
-  return size;
 };
