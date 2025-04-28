@@ -1,5 +1,5 @@
 import "./index.css";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ResponsiveSunburst } from "@nivo/sunburst";
 
 const App = () => {
@@ -7,9 +7,26 @@ const App = () => {
   const [folderData, setFolderData] = useState<any>(null);
   const [nivoData, setNivoData] = useState<any>(null);
   const [nodeStack, setNodeStack] = useState<any[]>([]);
+  const [searchText, setSearchText] = useState<string>("");
+  const [debouncedSearchText, setDebouncedSearchText] = useState<string>("");
+  const [isFiltering, setIsFiltering] = useState<boolean>(false);
 
   // Path prefix to remove
   const PATH_PREFIX = '/Users/mbuice/src/FolderAnalyzer/test';
+
+  // Debounce searchText updates and only filter after debounce
+  useEffect(() => {
+    if (searchText !== debouncedSearchText) {
+      setIsFiltering(true);
+      const handler = setTimeout(() => {
+        setDebouncedSearchText(searchText);
+        setIsFiltering(false);
+      }, 300);
+      return () => clearTimeout(handler);
+    } else {
+      setIsFiltering(false);
+    }
+  }, [searchText, debouncedSearchText]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFolderPath(event.target.value);
@@ -54,6 +71,10 @@ const App = () => {
   };
 
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
+  const filteredRoot = useMemo(
+    () => filterTree(currentRoot, debouncedSearchText),
+    [currentRoot, debouncedSearchText]
+  );
 
   // Convert backend TreeNode to Nivo format
   function toNivoTree(node: any, isRoot = false): any {
@@ -116,6 +137,24 @@ const App = () => {
     // return `${d.data.name}\n(${formatSize(d.data.value)})\n${displayPath}`;
   };
 
+  // Filter tree recursively by search text (matches name or path)
+  function filterTree(node: any, search: string): any | null {
+    if (!node) return null;
+    if (!search) return node;
+    const searchLower = search.toLowerCase();
+    const matches = node.name.toLowerCase().includes(searchLower) || node.id.toLowerCase().includes(searchLower);
+    if (node.children && node.children.length > 0) {
+      const filteredChildren = node.children
+        .map((child: any) => filterTree(child, search))
+        .filter(Boolean);
+      if (filteredChildren.length > 0 || matches) {
+        return { ...node, children: filteredChildren };
+      }
+      return null;
+    }
+    return matches ? node : null;
+  }
+
   return (
     <div style={{ padding: 24, height: "100vh", width: "100vw" }}>
       <h1>Nivo Treemap Drilldown</h1>
@@ -134,6 +173,15 @@ const App = () => {
           Analyze Folder
         </button>
       </div>
+      <div className="mb-4">
+        <input
+          type="text"
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          placeholder="Search files or folders"
+          className="border border-gray-300 p-2 rounded w-full mb-2"
+        />
+      </div>
       <p className="mb-4">Selected Folder: {folderPath}</p>
       <p className="mb-2 text-sm text-gray-400">
         Drilldown enabled. Click a folder to zoom in. Use Back to zoom out.
@@ -144,9 +192,14 @@ const App = () => {
         </button>
       )}
       <div style={{ height: "80vh", width: "100%" }}>
-        {currentRoot && (
+        {isFiltering && (
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+          </div>
+        )}
+        {filteredRoot && (
           <ResponsiveSunburst
-            data={currentRoot}
+            data={filteredRoot}
             value="value"
             cornerRadius={2}
             borderColor={{ from: "color", modifiers: [["darker", 0.6]] }}
