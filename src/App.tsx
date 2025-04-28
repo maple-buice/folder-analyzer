@@ -103,7 +103,8 @@ const App = () => {
         .map((child: any) => filterTree(child, search))
         .filter(Boolean);
       if (filteredChildren.length > 0 || matches) {
-        return { ...node, children: filteredChildren };
+        const totalValue = filteredChildren.reduce((acc: number, child: any) => acc + (child.value ?? 0), 0);
+        return { ...node, children: filteredChildren, value: totalValue };
       }
       return null;
     }
@@ -186,8 +187,8 @@ const App = () => {
             tooltip={SunburstTooltip}
             enableArcLabels={true}
             arcLabel={arcLabel}
-            arcLabelsSkipAngle={20}
-            arcLabelsRadiusOffset={0.8}
+            arcLabelsSkipAngle={7}
+            arcLabelsRadiusOffset={0.5}
             arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
           />
         )}
