@@ -12,8 +12,6 @@ const App = () => {
   const [searchText, setSearchText] = useState<string>('');
   const [appliedFilter, setAppliedFilter] = useState<string>('');
 
-  const PATH_PREFIX = '/Users/mbuice/src/FolderAnalyzer/test';
-
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFolderPath(event.target.value);
   };
@@ -76,10 +74,16 @@ const App = () => {
     return `${(bytes / 1024).toFixed(2)} KB`;
   };
 
+  // Dynamically compute the prefix to remove from paths based on the analyzed folder
+  const getDisplayPath = (fullPath: string) => {
+    if (!folderPath) return fullPath;
+    // Ensure trailing slash for correct matching
+    const prefix = folderPath.endsWith('/') ? folderPath : folderPath + '/';
+    return fullPath.startsWith(prefix) ? fullPath.slice(prefix.length) : fullPath;
+  };
+
   const SunburstTooltip = (node: any) => {
-    const displayPath = node.id.startsWith(PATH_PREFIX)
-      ? node.id.slice(PATH_PREFIX.length)
-      : node.id;
+    const displayPath = getDisplayPath(node.id);
     return (
       <div
         style={{
@@ -101,7 +105,9 @@ const App = () => {
   };
 
   const arcLabel = (d: any) => {
+    // Optionally use displayPath in the label if desired
     return `${d.data.name}\n(${formatSize(d.data.value)})`;
+    // Or: return `${d.data.name}\n(${formatSize(d.data.value)})\n${getDisplayPath(d.id)}`;
   };
 
   function filterTree(node: any, search: string): any | null {
@@ -202,8 +208,8 @@ const App = () => {
             tooltip={SunburstTooltip}
             enableArcLabels={true}
             arcLabel={arcLabel}
-            arcLabelsSkipAngle={7}
-            arcLabelsRadiusOffset={0.5}
+            arcLabelsSkipAngle={10}
+            arcLabelsRadiusOffset={0.8}
             arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
           />
         )}
