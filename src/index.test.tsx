@@ -12,7 +12,7 @@ function log(...args: any[]) {
   console.log('[DIAGNOSTIC]', ...args);
 }
 
-// Helper to create a mock Dirent object
+// Helper to create a mock Dirent object for folder analysis
 function createMockDirent(name: string, isFile: boolean): fs.Dirent {
   return {
     name,
@@ -76,11 +76,10 @@ mockFs.statSync.mockImplementation((path: fs.PathLike) => {
   } as fs.Stats;
 });
 
-describe('processFiles', () => {
-  it('should calculate sizes correctly', () => {
+describe('processFiles (folder analysis)', () => {
+  it('should calculate sizes correctly for a simple folder', () => {
     const folderPath = '/test';
     const result = processFiles(folderPath);
-    console.log(result);
     expect(result).toEqual({
       name: 'root',
       children: [

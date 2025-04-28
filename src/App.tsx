@@ -3,9 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { ResponsiveSunburst } from '@nivo/sunburst';
 
 const App = () => {
-  const [folderPath, setFolderPath] = useState<string>(
-    '/Users/mbuice/src/FolderAnalyzer/test/unified-theme'
-  );
+  const [folderPath, setFolderPath] = useState<string>('');
   const [folderData, setFolderData] = useState<any>(null);
   const [nivoData, setNivoData] = useState<any>(null);
   const [nodeStack, setNodeStack] = useState<any[]>([]);
@@ -160,8 +158,8 @@ const App = () => {
           Folder Sunburst Explorer
         </h1>
         <p className="text-gray-300 mb-4 text-center max-w-xl">
-          Visualize your folder structure and file sizes. Analyze a folder, then filter by name or
-          extension to explore your files interactively.
+          Instantly visualize your disk usage. Analyze any folder, then filter and drill down to
+          find large files and folders fast.
         </p>
       </header>
       <div className="max-w-2xl mx-auto bg-[#23272f] bg-opacity-80 rounded-xl shadow-lg p-6 mb-8 flex flex-col gap-4">
@@ -170,7 +168,7 @@ const App = () => {
             type="text"
             value={folderPath}
             onChange={handleInputChange}
-            placeholder="Enter folder path"
+            placeholder="Enter a folder path..."
             className="border border-gray-300 p-2 rounded flex-1 min-w-0"
           />
           <button

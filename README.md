@@ -1,14 +1,16 @@
-# Folder Analyzer
+# Folder Sunburst Explorer
 
-A web app to visually explore the structure and disk usage of a folder using a Nivo Sunburst chart. Analyze any directory and drill down into subfolders to see which files and folders are taking up the most space.
+![Folder Sunburst Explorer](https://img.shields.io/badge/visualization-sunburst-blue?style=flat-square)
+
+**Visualize your folder structure and file sizes as an interactive sunburst chart. Drill down, filter by name or extension, and explore your disk usage visually.**
 
 ## Features
 
 - Visualizes folder structure and file sizes as an interactive sunburst chart
 - Drilldown and zoom out navigation
+- Filter by file/folder name and extension
 - Tooltips and arc labels show file/folder names and sizes (in KB/MB)
-- Customizable path prefix for cleaner display
-- Built with React, Bun, Tailwind CSS, and Nivo
+- Modern, responsive UI built with React and Tailwind CSS
 
 ## Setup
 
@@ -36,12 +38,11 @@ bun start
 2. Click "Analyze Folder".
 3. Explore the sunburst chart:
    - Hover over arcs to see tooltips with name, size, and path.
-   - Click on a folder to zoom in; use the Back button to zoom out.
-   - Arc labels show the name and size (in KB/MB) for larger arcs.
+   - Click a folder to zoom in; use the Back button to zoom out.
+   - Use the filter bar to search by name or extension.
 
 ## Customization
 
-- The path prefix removed from displayed paths is set in `src/App.tsx` as `PATH_PREFIX`.
 - You can adjust the sunburst appearance (colors, label angles, etc.) in the `ResponsiveSunburst` props in `src/App.tsx`.
 
 ## Tech Stack
@@ -51,6 +52,3 @@ bun start
 - [Tailwind CSS](https://tailwindcss.com/) (styling)
 - [Nivo Sunburst](https://nivo.rocks/sunburst/) (visualization)
 
----
-
-This project was created using `bun init` in bun v1.2.6.
