@@ -11,6 +11,8 @@ const App = () => {
   const [nodeStack, setNodeStack] = useState<any[]>([]);
   const [searchText, setSearchText] = useState<string>('');
   const [appliedFilter, setAppliedFilter] = useState<string>('');
+  const [extensionFilter, setExtensionFilter] = useState<string>('');
+  const [appliedExtension, setAppliedExtension] = useState<string>('');
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFolderPath(event.target.value);
@@ -54,8 +56,8 @@ const App = () => {
 
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
   const filteredRoot = useMemo(
-    () => filterTree(currentRoot, appliedFilter),
-    [currentRoot, appliedFilter]
+    () => filterTree(currentRoot, appliedFilter, appliedExtension, true),
+    [currentRoot, appliedFilter, appliedExtension]
   );
 
   function toNivoTree(node: any, isRoot = false): any {
@@ -110,27 +112,46 @@ const App = () => {
     // Or: return `${d.data.name}\n(${formatSize(d.data.value)})\n${getDisplayPath(d.id)}`;
   };
 
-  function filterTree(node: any, search: string): any | null {
+  function filterTree(node: any, search: string, ext: string, isRoot = false): any | null {
     if (!node) return null;
-    if (!search) return node;
-    const searchLower = search.toLowerCase();
-    const matches =
-      node.name.toLowerCase().includes(searchLower) || node.id.toLowerCase().includes(searchLower);
+    const searchLower = search ? search.toLowerCase() : '';
+    const extLower = ext ? (ext.startsWith('.') ? ext.toLowerCase() : '.' + ext.toLowerCase()) : '';
+    const matchesText =
+      !searchLower ||
+      node.name.toLowerCase().includes(searchLower) ||
+      node.id.toLowerCase().includes(searchLower);
+    const matchesExt =
+      !extLower || (node.children ? false : node.name.toLowerCase().endsWith(extLower));
     if (node.children && node.children.length > 0) {
       const filteredChildren = node.children
-        .map((child: any) => filterTree(child, search))
+        .map((child: any) => filterTree(child, search, ext, false))
         .filter(Boolean);
-      if (filteredChildren.length > 0 || matches) {
+      if (filteredChildren.length > 0 || (matchesText && matchesExt)) {
         const totalValue = filteredChildren.reduce(
           (acc: number, child: any) => acc + (child.value ?? 0),
           0
         );
-        return { ...node, children: filteredChildren, value: totalValue };
+        const result: any = { ...node, children: filteredChildren };
+        if (!isRoot) result.value = totalValue;
+        return result;
       }
       return null;
     }
-    return matches ? node : null;
+    return matchesText && matchesExt ? node : null;
   }
+
+  // Extract unique file extensions from the current tree
+  function getExtensionsFromTree(node: any, extensions = new Set<string>()): Set<string> {
+    if (!node) return extensions;
+    if (node.children && node.children.length > 0) {
+      node.children.forEach((child: any) => getExtensionsFromTree(child, extensions));
+    } else if (node.name && node.name.includes('.')) {
+      const ext = node.name.slice(node.name.lastIndexOf('.')).toLowerCase();
+      extensions.add(ext);
+    }
+    return extensions;
+  }
+  const extensionOptions = Array.from(getExtensionsFromTree(currentRoot)).sort();
 
   return (
     <div style={{ padding: 24, height: '100vh', width: '100vw' }}>
@@ -156,6 +177,7 @@ const App = () => {
             onSubmit={(e) => {
               e.preventDefault();
               setAppliedFilter(searchText);
+              setAppliedExtension(extensionFilter);
             }}
             className="flex gap-2"
           >
@@ -166,6 +188,18 @@ const App = () => {
               placeholder="Search files or folders"
               className="border border-gray-300 p-2 rounded w-full mb-2"
             />
+            <select
+              value={extensionFilter}
+              onChange={(e) => setExtensionFilter(e.target.value)}
+              className="border border-gray-300 p-2 rounded w-48 mb-2"
+            >
+              <option value="">All Extensions</option>
+              {extensionOptions.map((ext) => (
+                <option key={ext} value={ext}>
+                  {ext}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 mb-2"
@@ -178,6 +212,8 @@ const App = () => {
               onClick={() => {
                 setSearchText('');
                 setAppliedFilter('');
+                setExtensionFilter('');
+                setAppliedExtension('');
               }}
             >
               Clear
