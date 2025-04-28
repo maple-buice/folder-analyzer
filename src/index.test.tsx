@@ -58,15 +58,13 @@ const readdirSyncStringMock = jest.fn((pathArg: fs.PathLike, options?: any) => {
   return result;
 });
 
-mockFs.readdirSync.mockImplementation(
-  ((pathArg: fs.PathLike, options?: any) => {
-    if (options && options.withFileTypes) {
-      return readdirSyncDirentMock(pathArg, options);
-    } else {
-      return readdirSyncStringMock(pathArg, options);
-    }
-  }) as unknown as typeof fs.readdirSync
-);
+mockFs.readdirSync.mockImplementation(((pathArg: fs.PathLike, options?: any) => {
+  if (options && options.withFileTypes) {
+    return readdirSyncDirentMock(pathArg, options);
+  } else {
+    return readdirSyncStringMock(pathArg, options);
+  }
+}) as unknown as typeof fs.readdirSync);
 
 mockFs.statSync.mockImplementation((path: fs.PathLike) => {
   const pathStr = path.toString();
@@ -90,9 +88,7 @@ describe('processFiles', () => {
         { name: 'file2.txt', size: 100, key: '/test/file2.txt' },
         {
           name: 'folder1',
-          children: [
-            { name: 'file3.txt', size: 100, key: '/test/folder1/file3.txt' },
-          ],
+          children: [{ name: 'file3.txt', size: 100, key: '/test/folder1/file3.txt' }],
           size: 100,
           key: '/test/folder1',
         },
@@ -130,9 +126,7 @@ describe('calculateSize', () => {
       children: [
         {
           name: 'folder1',
-          children: [
-            { name: 'file1.txt', size: 100, key: 'file1.txt' },
-          ],
+          children: [{ name: 'file1.txt', size: 100, key: 'file1.txt' }],
           size: 0,
           key: 'folder1',
         },
@@ -161,7 +155,7 @@ function makeReaddirSyncMock(mapping: Record<string, string[]>, fileSet: Set<str
     const entries = mapping[pathStr] || [];
     if (options && options.withFileTypes) {
       // Return Dirent[]
-      return entries.map(name => createMockDirent(name, fileSet.has(`${pathStr}/${name}`)));
+      return entries.map((name) => createMockDirent(name, fileSet.has(`${pathStr}/${name}`)));
     }
     return entries;
   };
@@ -172,15 +166,13 @@ describe('processFiles - additional coverage', () => {
     mockFs.readdirSync.mockReset();
     mockFs.statSync.mockReset();
     // Restore default mock for other tests
-    mockFs.readdirSync.mockImplementation(
-      ((pathArg: fs.PathLike, options?: any) => {
-        if (options && options.withFileTypes) {
-          return readdirSyncDirentMock(pathArg, options);
-        } else {
-          return readdirSyncStringMock(pathArg, options);
-        }
-      }) as unknown as typeof fs.readdirSync
-    );
+    mockFs.readdirSync.mockImplementation(((pathArg: fs.PathLike, options?: any) => {
+      if (options && options.withFileTypes) {
+        return readdirSyncDirentMock(pathArg, options);
+      } else {
+        return readdirSyncStringMock(pathArg, options);
+      }
+    }) as unknown as typeof fs.readdirSync);
     mockFs.statSync.mockImplementation((path: fs.PathLike) => {
       const pathStr = path.toString();
       // Treat anything ending in .txt as a file, otherwise as a directory
@@ -193,7 +185,9 @@ describe('processFiles - additional coverage', () => {
   });
 
   it('should handle an empty folder', () => {
-    mockFs.readdirSync.mockImplementation(makeReaddirSyncMock({ '/empty': [] }) as unknown as typeof fs.readdirSync);
+    mockFs.readdirSync.mockImplementation(
+      makeReaddirSyncMock({ '/empty': [] }) as unknown as typeof fs.readdirSync
+    );
     const result = processFiles('/empty');
     expect(result).toEqual({
       name: 'root',
@@ -211,7 +205,9 @@ describe('processFiles - additional coverage', () => {
       '/deep/level1/level2/file.txt': [],
     };
     const fileSet = new Set(['/deep/level1/level2/file.txt']);
-    mockFs.readdirSync.mockImplementation(makeReaddirSyncMock(mapping, fileSet) as unknown as typeof fs.readdirSync);
+    mockFs.readdirSync.mockImplementation(
+      makeReaddirSyncMock(mapping, fileSet) as unknown as typeof fs.readdirSync
+    );
     mockFs.statSync.mockImplementation((pathArg: fs.PathLike) => {
       const pathStr = pathArg.toString();
       return {
@@ -228,9 +224,7 @@ describe('processFiles - additional coverage', () => {
           children: [
             {
               name: 'level2',
-              children: [
-                { name: 'file.txt', size: 42, key: '/deep/level1/level2/file.txt' },
-              ],
+              children: [{ name: 'file.txt', size: 42, key: '/deep/level1/level2/file.txt' }],
               size: 42,
               key: '/deep/level1/level2',
             },
@@ -245,25 +239,32 @@ describe('processFiles - additional coverage', () => {
   });
 
   it('should handle files with size 0', () => {
-    mockFs.readdirSync.mockImplementation(makeReaddirSyncMock({ '/zero': ['zero.txt'] }, new Set(['/zero/zero.txt'])) as unknown as typeof fs.readdirSync);
-    mockFs.statSync.mockImplementation((pathArg: fs.PathLike) => ({ isFile: () => true, size: 0 } as fs.Stats));
+    mockFs.readdirSync.mockImplementation(
+      makeReaddirSyncMock(
+        { '/zero': ['zero.txt'] },
+        new Set(['/zero/zero.txt'])
+      ) as unknown as typeof fs.readdirSync
+    );
+    mockFs.statSync.mockImplementation(
+      (pathArg: fs.PathLike) => ({ isFile: () => true, size: 0 }) as fs.Stats
+    );
     const result = processFiles('/zero');
     expect(result).toEqual({
       name: 'root',
-      children: [
-        { name: 'zero.txt', size: 0, key: '/zero/zero.txt' },
-      ],
+      children: [{ name: 'zero.txt', size: 0, key: '/zero/zero.txt' }],
       size: 0,
       key: 'root',
     });
   });
 
   it('should handle a folder with only folders', () => {
-    mockFs.readdirSync.mockImplementation(makeReaddirSyncMock({
-      '/folders': ['a', 'b'],
-      '/folders/a': [],
-      '/folders/b': [],
-    }) as unknown as typeof fs.readdirSync);
+    mockFs.readdirSync.mockImplementation(
+      makeReaddirSyncMock({
+        '/folders': ['a', 'b'],
+        '/folders/a': [],
+        '/folders/b': [],
+      }) as unknown as typeof fs.readdirSync
+    );
     mockFs.statSync.mockImplementation((pathArg: fs.PathLike) => {
       return {
         isFile: () => false,
@@ -283,7 +284,12 @@ describe('processFiles - additional coverage', () => {
   });
 
   it('should handle a folder with only files', () => {
-    mockFs.readdirSync.mockImplementation(makeReaddirSyncMock({ '/files': ['f1.txt', 'f2.txt'] }, new Set(['/files/f1.txt', '/files/f2.txt'])) as unknown as typeof fs.readdirSync);
+    mockFs.readdirSync.mockImplementation(
+      makeReaddirSyncMock(
+        { '/files': ['f1.txt', 'f2.txt'] },
+        new Set(['/files/f1.txt', '/files/f2.txt'])
+      ) as unknown as typeof fs.readdirSync
+    );
     mockFs.statSync.mockImplementation((pathArg: fs.PathLike) => {
       return {
         isFile: () => true,
@@ -303,11 +309,16 @@ describe('processFiles - additional coverage', () => {
   });
 
   it('should handle a folder with mixed files and folders', () => {
-    mockFs.readdirSync.mockImplementation(makeReaddirSyncMock({
-      '/mixed': ['file.txt', 'sub'],
-      '/mixed/sub': ['inner.txt'],
-      '/mixed/sub/inner.txt': [],
-    }, new Set(['/mixed/file.txt', '/mixed/sub/inner.txt'])) as unknown as typeof fs.readdirSync);
+    mockFs.readdirSync.mockImplementation(
+      makeReaddirSyncMock(
+        {
+          '/mixed': ['file.txt', 'sub'],
+          '/mixed/sub': ['inner.txt'],
+          '/mixed/sub/inner.txt': [],
+        },
+        new Set(['/mixed/file.txt', '/mixed/sub/inner.txt'])
+      ) as unknown as typeof fs.readdirSync
+    );
     mockFs.statSync.mockImplementation((pathArg: fs.PathLike) => {
       const pathStr = pathArg.toString();
       if (pathStr.endsWith('.txt')) return { isFile: () => true, size: 5 } as fs.Stats;
@@ -320,9 +331,7 @@ describe('processFiles - additional coverage', () => {
         { name: 'file.txt', size: 5, key: '/mixed/file.txt' },
         {
           name: 'sub',
-          children: [
-            { name: 'inner.txt', size: 5, key: '/mixed/sub/inner.txt' },
-          ],
+          children: [{ name: 'inner.txt', size: 5, key: '/mixed/sub/inner.txt' }],
           size: 5,
           key: '/mixed/sub',
         },

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.bun/
+coverage/
+logs/
+*.log
+*.tmp
+*.swp
+.idea/
+.vscode/
+.env

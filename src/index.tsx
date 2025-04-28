@@ -1,5 +1,5 @@
-import { serve } from "bun";
-import index from "./index.html";
+import { serve } from 'bun';
+import index from './index.html';
 import fs from 'fs';
 import path from 'path';
 
@@ -13,40 +13,48 @@ export type TreeNode = {
 const server = serve({
   routes: {
     // Serve index.html for all unmatched routes.
-    "/*": index,
+    '/*': index,
 
-    "/api/hello": {
+    '/api/hello': {
       async GET(req) {
         return Response.json({
-          message: "Hello, world!",
-          method: "GET",
+          message: 'Hello, world!',
+          method: 'GET',
         });
       },
       async PUT(req) {
         return Response.json({
-          message: "Hello, world!",
-          method: "PUT",
+          message: 'Hello, world!',
+          method: 'PUT',
         });
       },
     },
 
-    "/api/hello/:name": async (req) => {
+    '/api/hello/:name': async (req) => {
       const name = req.params.name;
       return Response.json({
         message: `Hello, ${name}!`,
       });
     },
 
-    "/api/analyze-folder/:path": async (req: { params: { path: string } }) => {
+    '/api/analyze-folder/:path': async (req: { params: { path: string } }) => {
       const folderPath = req.params.path;
 
       const fileMap = processFiles(folderPath);
-      const tree: TreeNode = { name: 'root', children: fileMap.children, size: fileMap.size || 0, key: 'root' };
+      const tree: TreeNode = {
+        name: 'root',
+        children: fileMap.children,
+        size: fileMap.size || 0,
+        key: 'root',
+      };
       if (fileMap.size === undefined) {
         const calculateSize = (node: TreeNode): number => {
           if (!node.children) return node.size || 0;
           const children = Object.values(node.children);
-          const size = children.reduce((acc: number, child: TreeNode) => acc + calculateSize(child), 0);
+          const size = children.reduce(
+            (acc: number, child: TreeNode) => acc + calculateSize(child),
+            0
+          );
           node.size = size;
           return size;
         };
@@ -56,7 +64,7 @@ const server = serve({
       return Response.json({ message: 'Folder analysis complete', tree });
     },
   },
-  development: process.env.NODE_ENV !== "production",
+  development: process.env.NODE_ENV !== 'production',
 });
 
 console.log(`🚀 Server running at ${server.url}`);
@@ -107,7 +115,10 @@ export const processFiles = (folderPath: string): TreeNode => {
 export const calculateSize = (node: TreeNode): number => {
   if (!node.children) return node.size || 0;
   // Folder node
-  const size = node.children.reduce((acc: number, child: TreeNode) => acc + calculateSize(child), 0);
+  const size = node.children.reduce(
+    (acc: number, child: TreeNode) => acc + calculateSize(child),
+    0
+  );
   node.size = size;
   return size;
 };
