@@ -173,16 +173,17 @@ const App = () => {
           Analyze Folder
         </button>
       </div>
-      <div className="mb-4">
-        <input
-          type="text"
-          value={searchText}
-          onChange={e => setSearchText(e.target.value)}
-          placeholder="Search files or folders"
-          className="border border-gray-300 p-2 rounded w-full mb-2"
-        />
-      </div>
-      <p className="mb-4">Selected Folder: {folderPath}</p>
+      {folderData && (
+        <div className="mb-4">
+          <input
+            type="text"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            placeholder="Search files or folders"
+            className="border border-gray-300 p-2 rounded w-full mb-2"
+          />
+        </div>
+      )}
       <p className="mb-2 text-sm text-gray-400">
         Drilldown enabled. Click a folder to zoom in. Use Back to zoom out.
       </p>
