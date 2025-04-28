@@ -226,9 +226,24 @@ const App = () => {
           </form>
         )}
       </div>
-      <p className="mb-2 text-sm text-gray-400">
-        Drilldown enabled. Click a folder to zoom in. Use Back to zoom out.
-      </p>
+      <div className="max-w-2xl mx-auto mb-4">
+        <div className="bg-blue-100 bg-opacity-80 text-blue-900 text-sm rounded-lg px-4 py-3 flex items-center gap-2 shadow-sm">
+          <svg
+            className="w-4 h-4 text-blue-400 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
+          </svg>
+          <span>
+            <strong>Drilldown enabled:</strong> Click a folder to zoom in. Use <b>Back</b> to zoom
+            out.
+          </span>
+        </div>
+      </div>
       {nodeStack.length > 1 && (
         <button onClick={handleBack} style={{ marginBottom: 8 }}>
           Back
