@@ -18,3 +18,8 @@ if (document.readyState === "loading") {
 } else {
   start();
 }
+
+// Enable Bun HMR for this entrypoint
+if (import.meta.hot) {
+  import.meta.hot.accept();
+}

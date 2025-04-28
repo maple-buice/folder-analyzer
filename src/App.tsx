@@ -1,11 +1,12 @@
 import "./index.css";
-import React, { useState } from 'react';
-import { Treemap } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { ResponsiveTreeMap } from "@nivo/treemap";
 
 const App = () => {
+  const [folderPath, setFolderPath] = useState<string>("/Users/mbuice/src/FolderAnalyzer/test/unified-theme");
   const [folderData, setFolderData] = useState<any>(null);
-  const [currentPath, setCurrentPath] = useState<string>('root');
-  const [folderPath, setFolderPath] = useState<string>('/Users/mbuice/src/FolderAnalyzer/test/unified-theme');
+  const [nivoData, setNivoData] = useState<any>(null);
+  const [nodeStack, setNodeStack] = useState<any[]>([]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFolderPath(event.target.value);
@@ -25,76 +26,49 @@ const App = () => {
           'Content-Type': 'application/json',
         },
       });
-
       const data = await response.json().catch(() => ({ message: 'No data received' }));
-      console.log(data);
       if (data.tree) {
         setFolderData(data.tree);
+        const nivoTree = toNivoTree(data.tree);
+        setNivoData(nivoTree);
+        setNodeStack([nivoTree]);
       }
     } catch (error) {
       console.error('Error sending folder path:', error);
     }
   };
 
-  const processFiles = (files: FileList): any => {
-    const fileMap: any = {};
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const pathParts = file.webkitRelativePath.split('/');
-      let currentLevel = fileMap;
-
-      pathParts.forEach((part: string, index: number) => {
-        if (!currentLevel[part]) {
-          currentLevel[part] = {
-            name: part,
-            children: index === pathParts.length - 1 ? null : {},
-            size: index === pathParts.length - 1 ? file.size : 0,
-          };
-        }
-        if (index === pathParts.length - 1) {
-          currentLevel[part].size = file.size;
-        }
-        currentLevel = currentLevel[part].children;
-      });
+  const handleClick = (node: any) => {
+    if (node.data.children) {
+      setNodeStack([...nodeStack, node.data]);
     }
+  };
 
-    const buildTree = (node: any): any => {
-      if (!node.children) return node;
-      const children = Object.values(node.children).map(buildTree);
-      const size = children.reduce((acc: number, child: any) => acc + child.size, 0);
-      return { ...node, children, size };
+  const handleBack = () => {
+    if (nodeStack.length > 1) {
+      setNodeStack(nodeStack.slice(0, -1));
+    }
+  };
+
+  const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
+
+  // Convert backend TreeNode to Nivo format
+  function toNivoTree(node: any): any {
+    if (node.children && node.children.length > 0) {
+      return {
+        name: node.name,
+        children: node.children.map(toNivoTree),
+      };
+    }
+    return {
+      name: node.name,
+      value: node.size ?? 1,
     };
-
-    return buildTree({ name: 'root', children: fileMap });
-  };
-
-  const handleNodeClick = (node: any) => {
-    if (node.children) {
-      setCurrentPath(node.name);
-      setFolderData(node);
-    }
-  };
-
-  // Transform backend tree to recharts format
-  function toRechartsTree(node: any): any {
-    let children = node.children;
-    if (children && !Array.isArray(children)) {
-      children = Object.values(children).map(toRechartsTree);
-    }
-    if (Array.isArray(children) && children.length === 0) {
-      children = undefined;
-    }
-    // Omit key for recharts
-    const { key, ...rest } = node;
-    return { ...rest, children };
   }
 
-  console.log('Folder Data:', folderData);
-
   return (
-    <div className="App p-4">
-      <h1 className="text-2xl font-bold mb-4">Folder Treemap</h1>
+    <div style={{ padding: 24, height: "100vh", width: "100vw" }}>
+      <h1>Nivo Treemap Drilldown</h1>
       <div className="mb-4">
         <input
           type="text"
@@ -111,16 +85,31 @@ const App = () => {
         </button>
       </div>
       <p className="mb-4">Selected Folder: {folderPath}</p>
-      {folderData && (
-        <Treemap
-          width={800}
-          height={600}
-          data={[toRechartsTree(folderData)]}
-          dataKey="size"
-          stroke="#fff"
-          fill="#8884d8"
-        />
+      <p className="mb-2 text-sm text-gray-400">
+        Drilldown enabled. Click a folder to zoom in. Use Back to zoom out.
+      </p>
+      {nodeStack.length > 1 && (
+        <button onClick={handleBack} style={{ marginBottom: 8 }}>
+          Back
+        </button>
       )}
+      <div style={{ height: "80vh", width: "100%" }}>
+        {currentRoot && (
+          <ResponsiveTreeMap
+            data={currentRoot}
+            identity="name"
+            value="value"
+            label="name"
+            labelSkipSize={12}
+            parentLabelPosition="left"
+            colors={{ scheme: "nivo" }}
+            borderColor={{ from: "color", modifiers: [["darker", 0.3]] }}
+            animate={true}
+            motionConfig="gentle"
+            onClick={handleClick}
+          />
+        )}
+      </div>
     </div>
   );
 };

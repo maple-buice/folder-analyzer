@@ -80,26 +80,25 @@ export const processFiles = (folderPath: string): TreeNode => {
         name: fileName,
         size: stats.size,
         key: filePath,
-        // omit children for files
       });
     } else {
       // Directory: recurse
       const childTree = processFiles(filePath);
       fileMap.push({
         name: fileName,
-        children: childTree.children || [], // always array for folders
+        children: childTree.children || [],
         size: 0, // will be calculated
         key: filePath,
       });
     }
   });
 
-  // Always use 'root' for the root node's name and key to match test expectation
+  // Use the full folderPath as the key for the root node
   const root: TreeNode = {
     name: 'root',
-    children: fileMap, // always array for folders
+    children: fileMap,
     size: 0,
-    key: 'root',
+    key: folderPath,
   };
   calculateSize(root);
   return root;
