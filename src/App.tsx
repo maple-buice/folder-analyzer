@@ -1,13 +1,11 @@
 import "./index.css";
-import { APITester } from "./APITester";
 import React, { useState } from 'react';
-import Treemap from 'react-d3-treemap';
-import 'react-d3-treemap/dist/react.d3.treemap.css';
+import { Treemap } from 'recharts';
 
 const App = () => {
   const [folderData, setFolderData] = useState<any>(null);
   const [currentPath, setCurrentPath] = useState<string>('root');
-  const [folderPath, setFolderPath] = useState<string>('');
+  const [folderPath, setFolderPath] = useState<string>('/Users/mbuice/src/FolderAnalyzer/test/unified-theme');
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFolderPath(event.target.value);
@@ -30,6 +28,9 @@ const App = () => {
 
       const data = await response.json().catch(() => ({ message: 'No data received' }));
       console.log(data);
+      if (data.tree) {
+        setFolderData(data.tree);
+      }
     } catch (error) {
       console.error('Error sending folder path:', error);
     }
@@ -75,6 +76,22 @@ const App = () => {
     }
   };
 
+  // Transform backend tree to recharts format
+  function toRechartsTree(node: any): any {
+    let children = node.children;
+    if (children && !Array.isArray(children)) {
+      children = Object.values(children).map(toRechartsTree);
+    }
+    if (Array.isArray(children) && children.length === 0) {
+      children = undefined;
+    }
+    // Omit key for recharts
+    const { key, ...rest } = node;
+    return { ...rest, children };
+  }
+
+  console.log('Folder Data:', folderData);
+
   return (
     <div className="App p-4">
       <h1 className="text-2xl font-bold mb-4">Folder Treemap</h1>
@@ -95,16 +112,14 @@ const App = () => {
       </div>
       <p className="mb-4">Selected Folder: {folderPath}</p>
       {folderData && (
-        <div onClick={(e) => handleNodeClick(e)}>
-          <Treemap
-            width={800}
-            height={600}
-            data={folderData}
-            valueUnit="bytes"
-            id="treemap"
-            numberOfChildrenPlacement={"top" as any}
-          />
-        </div>
+        <Treemap
+          width={800}
+          height={600}
+          data={[toRechartsTree(folderData)]}
+          dataKey="size"
+          stroke="#fff"
+          fill="#8884d8"
+        />
       )}
     </div>
   );

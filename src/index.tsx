@@ -3,6 +3,13 @@ import index from "./index.html";
 import fs from 'fs';
 import path from 'path';
 
+export type TreeNode = {
+  name: string;
+  children?: TreeNode[]; // always array for folders, omitted for files
+  size: number;
+  key: string;
+};
+
 const server = serve({
   routes: {
     // Serve index.html for all unmatched routes.
@@ -30,48 +37,21 @@ const server = serve({
       });
     },
 
-    "/api/analyze-folder/:path": async (req) => {
+    "/api/analyze-folder/:path": async (req: { params: { path: string } }) => {
       const folderPath = req.params.path;
 
-      const processFiles = (folderPath: string) => {
-        const fileMap: any = {};
-        const files = fs.readdirSync(folderPath);
-
-        files.forEach((file) => {
-          const filePath = path.join(folderPath, file);
-          const stats = fs.statSync(filePath);
-
-          const relativePath = path.relative(folderPath, filePath);
-          const pathParts = relativePath.split(path.sep);
-          let currentLevel = fileMap;
-
-          pathParts.forEach((part, index) => {
-            if (!currentLevel[part]) {
-              currentLevel[part] = {
-                name: part,
-                children: index === pathParts.length - 1 ? null : {},
-                size: index === pathParts.length - 1 ? stats.size : 0,
-              };
-            }
-            if (index === pathParts.length - 1) {
-              currentLevel[part].size = stats.size;
-            }
-            currentLevel = currentLevel[part].children;
-          });
-        });
-
-        return fileMap;
-      };
-
-      const buildTree = (node: any): any => {
-        if (!node.children) return node;
-        const children = Object.values(node.children).map(buildTree);
-        const size = children.reduce((acc: number, child: any) => acc + child.size, 0);
-        return { ...node, children, size };
-      };
-
       const fileMap = processFiles(folderPath);
-      const tree = buildTree({ name: 'root', children: fileMap });
+      const tree: TreeNode = { name: 'root', children: fileMap.children, size: fileMap.size || 0, key: 'root' };
+      if (fileMap.size === undefined) {
+        const calculateSize = (node: TreeNode): number => {
+          if (!node.children) return node.size || 0;
+          const children = Object.values(node.children);
+          const size = children.reduce((acc: number, child: TreeNode) => acc + calculateSize(child), 0);
+          node.size = size;
+          return size;
+        };
+        calculateSize(tree);
+      }
 
       return Response.json({ message: 'Folder analysis complete', tree });
     },
@@ -80,3 +60,55 @@ const server = serve({
 });
 
 console.log(`🚀 Server running at ${server.url}`);
+
+function log(...args: any[]) {
+  // eslint-disable-next-line no-console
+  console.log('[DIAGNOSTIC]', ...args);
+}
+
+export const processFiles = (folderPath: string): TreeNode => {
+  const fileMap: TreeNode[] = [];
+  const files = fs.readdirSync(folderPath);
+
+  files.forEach((file) => {
+    const fileName = typeof file === 'string' ? file : String(file);
+    const filePath = path.join(folderPath, fileName);
+    const stats = fs.statSync(filePath);
+
+    if (stats.isFile()) {
+      fileMap.push({
+        name: fileName,
+        size: stats.size,
+        key: filePath,
+        // omit children for files
+      });
+    } else {
+      // Directory: recurse
+      const childTree = processFiles(filePath);
+      fileMap.push({
+        name: fileName,
+        children: childTree.children || [], // always array for folders
+        size: 0, // will be calculated
+        key: filePath,
+      });
+    }
+  });
+
+  // Always use 'root' for the root node's name and key to match test expectation
+  const root: TreeNode = {
+    name: 'root',
+    children: fileMap, // always array for folders
+    size: 0,
+    key: 'root',
+  };
+  calculateSize(root);
+  return root;
+};
+
+export const calculateSize = (node: TreeNode): number => {
+  if (!node.children) return node.size || 0;
+  // Folder node
+  const size = node.children.reduce((acc: number, child: TreeNode) => acc + calculateSize(child), 0);
+  node.size = size;
+  return size;
+};
