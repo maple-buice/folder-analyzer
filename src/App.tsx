@@ -42,19 +42,19 @@ const FolderInput: React.FC<{
   onSubmit: () => void;
   loading: boolean;
 }> = ({ folderPath, onChange, onSubmit, loading }) => (
-  <div className="flex gap-2 items-center">
+  <div className="flex gap-2 items-center w-full">
     <input
       type="text"
       value={folderPath}
       onChange={(e) => onChange(e.target.value)}
       placeholder="Enter a folder path..."
-      className="border border-gray-300 p-2 rounded flex-1 min-w-0"
+      className="flex-1 min-w-0 border border-gray-700/50 bg-gray-900/50 text-gray-100 p-2 rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-transparent placeholder-gray-500"
       aria-label="Folder path"
       disabled={loading}
     />
     <button
       onClick={onSubmit}
-      className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 min-w-[140px]"
+      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
       disabled={loading}
       aria-label="Analyze folder"
     >
@@ -87,22 +87,39 @@ const FilterBar: React.FC<{
       e.preventDefault();
       onFilter();
     }}
-    className="flex gap-2 items-center"
+    className="flex flex-col gap-4"
     aria-label="Filter files and folders"
   >
-    <input
-      type="text"
-      value={searchText}
-      onChange={(e) => setSearchText(e.target.value)}
-      placeholder="Search files or folders"
-      className="border border-gray-300 p-2 rounded flex-1 min-w-0"
-      aria-label="Search files or folders"
-      disabled={loading}
-    />
+    <div className="flex gap-2 items-center">
+      <input
+        type="text"
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        placeholder="Search files or folders"
+        className="flex-1 min-w-0 border border-gray-700/50 bg-gray-900/50 text-gray-100 p-2 rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-transparent placeholder-gray-500"
+        aria-label="Search files or folders"
+        disabled={loading}
+      />
+      <button
+        type="submit"
+        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        disabled={loading}
+      >
+        Filter
+      </button>
+      <button
+        type="button"
+        className="bg-gray-800 text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700/50 whitespace-nowrap"
+        onClick={onClear}
+        disabled={loading}
+      >
+        Clear
+      </button>
+    </div>
     <select
       value={extensionFilter}
       onChange={(e) => setExtensionFilter(e.target.value)}
-      className="border border-gray-300 p-2 rounded w-48"
+      className="w-full border border-gray-700/50 bg-gray-900/50 text-gray-100 p-2 rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-transparent"
       aria-label="Filter by extension"
       disabled={loading}
     >
@@ -113,32 +130,17 @@ const FilterBar: React.FC<{
         </option>
       ))}
     </select>
-    <button
-      type="submit"
-      className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-      disabled={loading}
-    >
-      Filter
-    </button>
-    <button
-      type="button"
-      className="bg-gray-300 text-black p-2 rounded hover:bg-gray-400"
-      onClick={onClear}
-      disabled={loading}
-    >
-      Clear
-    </button>
   </form>
 );
 
 const DrilldownAlert: React.FC = () => (
   <div
-    className="bg-blue-100 bg-opacity-80 text-blue-900 text-sm rounded-lg px-4 py-3 flex items-center gap-2 shadow-sm"
+    className="bg-blue-950/40 text-blue-200 rounded-lg px-4 py-3 flex items-center gap-2 shadow-lg backdrop-blur-sm border border-blue-900/20"
     role="status"
     aria-live="polite"
   >
     <svg
-      className="w-4 h-4 text-blue-400 flex-shrink-0"
+      className="w-5 h-5 text-blue-400 flex-shrink-0"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -149,7 +151,7 @@ const DrilldownAlert: React.FC = () => (
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
     </svg>
     <span>
-      <strong>Drilldown enabled:</strong> Click a folder to zoom in. Use <b>Back</b> to zoom out.
+      <strong className="font-semibold">Drilldown enabled:</strong> Click a folder to zoom in. Use <b>Back</b> to zoom out.
     </span>
   </div>
 );
@@ -289,21 +291,12 @@ const App: React.FC = () => {
     const displayPath = getDisplayPath(node.id, folderPath);
     return (
       <div
-        style={{
-          background: 'white',
-          color: 'black',
-          padding: '6px 9px',
-          border: '1px solid #ccc',
-          borderRadius: 4,
-          fontSize: 14,
-          pointerEvents: 'none',
-        }}
+        className="bg-gray-900 text-gray-100 p-3 rounded-lg shadow-xl border border-gray-800"
         aria-label={`Tooltip for ${node.data.name}`}
       >
-        <strong>{node.data.name}</strong>
-        <br />
-        <span>({formatSize(node.data.value)})</span>
-        <div style={{ fontSize: 12, color: '#888' }}>{displayPath}</div>
+        <strong className="block text-sm font-medium">{node.data.name}</strong>
+        <span className="text-sm text-gray-400">({formatSize(node.data.value)})</span>
+        <div className="text-xs text-gray-500 mt-1">{displayPath}</div>
       </div>
     );
   };
@@ -311,76 +304,90 @@ const App: React.FC = () => {
 
   // --- Render ---
   return (
-    <div style={{ padding: 24, height: '100vh', width: '100vw' }}>
-      <header className="mb-8 flex flex-col items-center">
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
+    <div className="h-screen w-screen bg-[#0B1120] text-gray-100 overflow-hidden">
+      <header className="text-center py-6">
+        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight drop-shadow-lg">
           Folder Sunburst Explorer
         </h1>
-        <p className="text-gray-300 mb-4 text-center max-w-xl">
-          Instantly visualize your disk usage. Analyze any folder, then filter and drill down to
-          find large files and folders fast.
+        <p className="text-gray-400 max-w-2xl mx-auto text-sm px-4">
+          Instantly visualize your disk usage. Analyze any folder, then filter and drill down to find large files and folders fast.
         </p>
       </header>
-      <div className="max-w-2xl mx-auto bg-[#23272f] bg-opacity-80 rounded-xl shadow-lg p-6 mb-8 flex flex-col gap-4">
-        <FolderInput
-          folderPath={folderPath}
-          onChange={setFolderPath}
-          onSubmit={() => folderPath && sendFolderPathToBackend(folderPath)}
-          loading={loading}
-        />
-        {folderData && (
-          <FilterBar
-            searchText={searchText}
-            setSearchText={setSearchText}
-            extensionFilter={extensionFilter}
-            setExtensionFilter={setExtensionFilter}
-            extensionOptions={extensionOptions}
-            onFilter={() => {
-              setAppliedFilter(searchText);
-              setAppliedExtension(extensionFilter);
-            }}
-            onClear={() => {
-              setSearchText('');
-              setAppliedFilter('');
-              setExtensionFilter('');
-              setAppliedExtension('');
-            }}
-            loading={loading}
-          />
-        )}
-        {error && (
-          <div className="bg-red-100 text-red-800 rounded px-4 py-2 mt-2" role="alert">
-            {error}
+
+      <div className="h-[calc(100vh-8rem)] grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 px-4 overflow-hidden">
+        {/* Controls Panel */}
+        <div className="lg:sticky lg:top-6 h-fit overflow-y-auto">
+          <div className="bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl p-4 space-y-4 border border-gray-800/20">
+            <FolderInput
+              folderPath={folderPath}
+              onChange={setFolderPath}
+              onSubmit={() => folderPath && sendFolderPathToBackend(folderPath)}
+              loading={loading}
+            />
+            {folderData && (
+              <FilterBar
+                searchText={searchText}
+                setSearchText={setSearchText}
+                extensionFilter={extensionFilter}
+                setExtensionFilter={setExtensionFilter}
+                extensionOptions={extensionOptions}
+                onFilter={() => {
+                  setAppliedFilter(searchText);
+                  setAppliedExtension(extensionFilter);
+                }}
+                onClear={() => {
+                  setSearchText('');
+                  setAppliedFilter('');
+                  setExtensionFilter('');
+                  setAppliedExtension('');
+                }}
+                loading={loading}
+              />
+            )}
+            {nodeStack.length > 1 && (
+              <button
+                onClick={handleBack}
+                className="flex items-center bg-gray-800 text-gray-300 px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm border border-gray-700/50"
+                aria-label="Back"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+            )}
+            {error && (
+              <div className="bg-red-950/40 text-red-200 rounded-lg px-4 py-3 border border-red-900/20" role="alert">
+                {error}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div className="max-w-2xl mx-auto mb-4">
-        <DrilldownAlert />
-      </div>
-      {nodeStack.length > 1 && (
-        <button
-          onClick={handleBack}
-          style={{ marginBottom: 8 }}
-          className="bg-gray-200 text-black px-3 py-1 rounded hover:bg-gray-300"
-          aria-label="Back"
-        >
-          Back
-        </button>
-      )}
-      <div style={{ height: '80vh', width: '100%' }}>
-        {filteredRoot && !loading && (
-          <SunburstChart
-            data={filteredRoot}
-            onClick={handleClick}
-            arcLabel={arcLabel}
-            tooltip={SunburstTooltip}
-          />
-        )}
-        {loading && (
-          <div className="flex items-center justify-center h-full">
-            <span className="loader" aria-label="Loading" />
+
+          {folderData && (
+            <div className="mt-4">
+              <DrilldownAlert />
+            </div>
+          )}
+        </div>
+
+        {/* Chart Area */}
+        <div className="bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 h-full">
+          <div className="w-full h-full min-h-[500px]">
+            {filteredRoot && !loading && (
+              <SunburstChart
+                data={filteredRoot}
+                onClick={handleClick}
+                arcLabel={arcLabel}
+                tooltip={SunburstTooltip}
+              />
+            )}
+            {loading && (
+              <div className="flex items-center justify-center h-full">
+                <span className="loader" aria-label="Loading" />
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
