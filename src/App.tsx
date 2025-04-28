@@ -305,8 +305,8 @@ const App: React.FC = () => {
   // --- Render ---
   return (
     <div className="h-screen w-screen bg-[#0B1120] text-gray-100 overflow-hidden flex flex-col">
-      <header className="flex-none text-center py-6">
-        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight drop-shadow-lg">
+      <header className="flex-none text-center py-4">
+        <h1 className="text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
           Folder Sunburst Explorer
         </h1>
         <p className="text-gray-400 max-w-2xl mx-auto text-sm px-4">
@@ -314,9 +314,9 @@ const App: React.FC = () => {
         </p>
       </header>
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 px-4 overflow-hidden">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 p-4 pb-6 overflow-hidden">
         {/* Controls Panel */}
-        <div className="lg:sticky lg:top-6 overflow-y-auto">
+        <div className="lg:sticky lg:top-4 overflow-y-auto">
           <div className="bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl p-4 space-y-4 border border-gray-800/20">
             <FolderInput
               folderPath={folderPath}
@@ -372,7 +372,7 @@ const App: React.FC = () => {
 
         {/* Chart Area */}
         <div className="min-h-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20">
-          <div className="w-full h-full">
+          <div className="w-full h-full p-2">
             {filteredRoot && !loading && (
               <SunburstChart
                 data={filteredRoot}
