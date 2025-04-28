@@ -2,12 +2,9 @@ import './index.css';
 import React, { useState, useMemo } from 'react';
 import { ResponsiveSunburst } from '@nivo/sunburst';
 import { TreeNode, ApiResponse } from './types';
-import { calculateSize } from './utils/tree';
 
 // --- Constants ---
 const VALUE_KEY = 'value';
-const NAME_KEY = 'name';
-const ID_KEY = 'id';
 
 // --- Utility Functions (move to utils/tree.ts if desired) ---
 const formatSize = (bytes: number) => {
