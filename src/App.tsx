@@ -155,43 +155,51 @@ const App = () => {
 
   return (
     <div style={{ padding: 24, height: '100vh', width: '100vw' }}>
-      <h1>Nivo Treemap Drilldown</h1>
-      <div className="mb-4">
-        <input
-          type="text"
-          value={folderPath}
-          onChange={handleInputChange}
-          placeholder="Enter folder path"
-          className="border border-gray-300 p-2 rounded w-full mb-2"
-        />
-        <button
-          onClick={handleSubmit}
-          className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-        >
-          Analyze Folder
-        </button>
-      </div>
-      {folderData && (
-        <div className="mb-4">
+      <header className="mb-8 flex flex-col items-center">
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
+          Folder Sunburst Explorer
+        </h1>
+        <p className="text-gray-300 mb-4 text-center max-w-xl">
+          Visualize your folder structure and file sizes. Analyze a folder, then filter by name or
+          extension to explore your files interactively.
+        </p>
+      </header>
+      <div className="max-w-2xl mx-auto bg-[#23272f] bg-opacity-80 rounded-xl shadow-lg p-6 mb-8 flex flex-col gap-4">
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={folderPath}
+            onChange={handleInputChange}
+            placeholder="Enter folder path"
+            className="border border-gray-300 p-2 rounded flex-1 min-w-0"
+          />
+          <button
+            onClick={handleSubmit}
+            className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 min-w-[140px]"
+          >
+            Analyze Folder
+          </button>
+        </div>
+        {folderData && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
               setAppliedFilter(searchText);
               setAppliedExtension(extensionFilter);
             }}
-            className="flex gap-2"
+            className="flex gap-2 items-center"
           >
             <input
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder="Search files or folders"
-              className="border border-gray-300 p-2 rounded w-full mb-2"
+              className="border border-gray-300 p-2 rounded flex-1 min-w-0"
             />
             <select
               value={extensionFilter}
               onChange={(e) => setExtensionFilter(e.target.value)}
-              className="border border-gray-300 p-2 rounded w-48 mb-2"
+              className="border border-gray-300 p-2 rounded w-48"
             >
               <option value="">All Extensions</option>
               {extensionOptions.map((ext) => (
@@ -200,15 +208,12 @@ const App = () => {
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 mb-2"
-            >
+            <button type="submit" className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600">
               Filter
             </button>
             <button
               type="button"
-              className="bg-gray-300 text-black p-2 rounded hover:bg-gray-400 mb-2"
+              className="bg-gray-300 text-black p-2 rounded hover:bg-gray-400"
               onClick={() => {
                 setSearchText('');
                 setAppliedFilter('');
@@ -219,8 +224,8 @@ const App = () => {
               Clear
             </button>
           </form>
-        </div>
-      )}
+        )}
+      </div>
       <p className="mb-2 text-sm text-gray-400">
         Drilldown enabled. Click a folder to zoom in. Use Back to zoom out.
       </p>
