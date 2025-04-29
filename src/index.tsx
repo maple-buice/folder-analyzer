@@ -1,15 +1,24 @@
 import { serve } from 'bun';
 import index from './index.html';
-import fs from 'fs';
-import path from 'path';
-import { TreeNode, ApiResponse } from './types';
-import { calculateSize } from './utils/tree';
+// Remove direct fs, path, TreeNode, ApiResponse, calculateSize, processFiles imports
+// import fs from 'fs';
+// import path from 'path';
+// import { TreeNode, ApiResponse } from './types';
+// import { calculateSize } from './utils/tree';
+
+// Import the refactored API handler
+import { handleAnalyzeFolder } from './server/api';
 
 const server = serve({
   routes: {
     // Serve index.html for all unmatched routes.
     '/*': index,
 
+    // Use the imported handler for the API route
+    '/api/analyze-folder/:path': handleAnalyzeFolder,
+
+    // Remove the old inline handler
+    /*
     '/api/analyze-folder/:path': async (req: { params: { path: string } }) => {
       const folderPath = req.params.path;
       try {
@@ -29,12 +38,15 @@ const server = serve({
         );
       }
     },
+    */
   },
   development: process.env.NODE_ENV !== 'production',
 });
 
 console.log(`🚀 Folder Sunburst Explorer server running at ${server.url}`);
 
+// Remove the old processFiles function
+/*
 export const processFiles = (folderPath: string): TreeNode => {
   const fileMap: TreeNode[] = [];
   const files = fs.readdirSync(folderPath);
@@ -75,3 +87,4 @@ export const processFiles = (folderPath: string): TreeNode => {
   calculateSize(root);
   return root;
 };
+*/
