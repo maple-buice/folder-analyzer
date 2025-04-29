@@ -161,24 +161,57 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [backendErrors, setBackendErrors] = useState<string[]>([]);
+  const [showFolderInput, setShowFolderInput] = useState<boolean>(true);
 
   // Debounce Effect for Search and Extension Filters
   useEffect(() => {
-    // Set up a timer
     const handler = setTimeout(() => {
       setDebouncedSearchText(searchText);
       setDebouncedExtensionFilter(extensionFilter);
-    }, 300); // 300ms debounce delay
-
-    // Clear the timeout if the effect runs again before the timer expires
+    }, 300);
     return () => {
       clearTimeout(handler);
     };
-  }, [searchText, extensionFilter]); // Rerun effect if searchText or extensionFilter changes
+  }, [searchText, extensionFilter]);
 
-  // --- API Call ---
+  // --- Handler for successful analysis ---
+  const handleAnalysisSuccess = useCallback((treeData: TreeNode, path: string) => {
+    setFolderData(treeData);
+    const nivoTree = toNivoTree(treeData, true);
+    setNivoData(nivoTree);
+    setNodeStack([nivoTree]);
+    setFolderPath(path); // Store the analyzed path for display
+    setShowFolderInput(false); // Hide input on success
+    // Clear previous filters/errors that might be lingering
+    setSearchText('');
+    setDebouncedSearchText('');
+    setExtensionFilter('');
+    setDebouncedExtensionFilter('');
+    setError(null);
+    setBackendErrors([]);
+  }, []); // Dependencies: The setters are stable
+
+  // --- Handler to start a new analysis ---
+  const handleStartNewAnalysis = useCallback(() => {
+    setShowFolderInput(true); // Show input again
+    setFolderData(null); // Clear previous results/state
+    setNivoData(null);
+    setNodeStack([]);
+    setBackendErrors([]);
+    setError(null);
+    // Optionally clear folderPath too, or leave it as a suggestion
+    // setFolderPath('');
+    // Clear filters as well
+    setSearchText('');
+    setDebouncedSearchText('');
+    setExtensionFilter('');
+    setDebouncedExtensionFilter('');
+  }, []); // Dependencies: The setters are stable
+
+  // --- API Call (Updated) ---
   const sendFolderPathToBackend = useCallback(async (path: string) => {
     setLoading(true);
+    // Clear errors immediately for new request
     setError(null);
     setBackendErrors([]);
     try {
@@ -190,31 +223,35 @@ const App: React.FC = () => {
 
       if (response.ok) {
         if (data.tree) {
-          setFolderData(data.tree);
-          const nivoTree = toNivoTree(data.tree, true);
-          setNivoData(nivoTree);
-          setNodeStack([nivoTree]);
+          handleAnalysisSuccess(data.tree, path); // Use success handler
         } else {
+          // Handle OK but no tree data case
           setError(data.message || 'Analysis completed but no data received.');
           setFolderData(null);
           setNivoData(null);
           setNodeStack([]);
+          setShowFolderInput(true); // Keep input visible
         }
+        // Handle non-fatal backend processing errors even if tree exists
         if (data.errors && data.errors.length > 0) {
           setBackendErrors(data.errors);
         }
       } else {
+        // Handle non-OK response (4xx, 5xx)
         setError(data.message || 'Unknown error from server');
         setFolderData(null);
         setNivoData(null);
         setNodeStack([]);
+        setShowFolderInput(true); // Keep input visible
       }
     } catch (err: any) {
-      setError('Error sending folder path: ' + err.message);
+      // Handle fetch/network errors
+      setError('Network or fetch error: ' + err.message);
       setFolderData(null);
       setNivoData(null);
       setNodeStack([]);
       setBackendErrors([]);
+      setShowFolderInput(true); // Keep input visible
     } finally {
       setLoading(false);
     }
@@ -310,24 +347,45 @@ const App: React.FC = () => {
         {/* Controls Panel */}
         <div className="lg:sticky lg:top-4 overflow-y-auto">
           <div className="bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl p-4 space-y-4 border border-gray-800/20">
-            <FolderInput
-              folderPath={folderPath}
-              onChange={setFolderPath}
-              onSubmit={() => folderPath && sendFolderPathToBackend(folderPath)}
-              loading={loading}
-            />
-            <FilterBar
-              searchText={searchText}
-              setSearchText={setSearchText}
-              extensionFilter={extensionFilter}
-              setExtensionFilter={setExtensionFilter}
-              extensionOptions={extensionOptions}
-              onClear={handleClearFilter}
-              loading={loading}
-            />
-            {nodeStack.length > 1 && (
+            {/* Conditionally show Folder Input or Analyzed Path */}
+            {showFolderInput ? (
+              <FolderInput
+                folderPath={folderPath}
+                onChange={setFolderPath}
+                onSubmit={() => folderPath && sendFolderPathToBackend(folderPath)}
+                loading={loading}
+              />
+            ) : (
+              <div className="flex items-center justify-between gap-2 text-sm p-2 bg-gray-800/30 rounded-lg min-w-0">
+                <span className="text-gray-300 truncate min-w-0" title={folderPath}>
+                  Analyzed: <code className="text-gray-100 font-mono">{folderPath}</code>
+                </span>
+                <button
+                  onClick={handleStartNewAnalysis}
+                  className="text-blue-400 hover:text-blue-300 text-xs font-medium shrink-0 px-2 py-1 rounded hover:bg-blue-900/30"
+                >
+                  Change
+                </button>
+              </div>
+            )}
+
+            {/* Conditionally render FilterBar only after successful analysis */}
+            {!showFolderInput && folderData && (
+              <FilterBar
+                searchText={searchText}
+                setSearchText={setSearchText}
+                extensionFilter={extensionFilter}
+                setExtensionFilter={setExtensionFilter}
+                extensionOptions={extensionOptions}
+                onClear={handleClearFilter}
+                loading={loading} // Pass loading state to disable filters during re-analysis? Currently allows interaction.
+              />
+            )}
+
+            {/* Back button - only shown when drilled down AND input is hidden */}
+            {!showFolderInput && nodeStack.length > 1 && (
               <button
-                onClick={handleBack}
+                onClick={handleBack} // Use stable handler
                 className="flex items-center bg-gray-800 text-gray-300 px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm border border-gray-700/50"
                 aria-label="Back"
               >
@@ -344,6 +402,7 @@ const App: React.FC = () => {
                 Back
               </button>
             )}
+            {/* Fatal Error Display - shown regardless of input state */}
             {error && (
               <div
                 className="bg-red-950/40 text-red-200 rounded-lg px-4 py-3 border border-red-900/20"
@@ -354,13 +413,14 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {folderData && (
+          {/* Conditionally render DrilldownAlert only after successful analysis */}
+          {!showFolderInput && folderData && (
             <div className="mt-4">
               <DrilldownAlert />
             </div>
           )}
-
-          {backendErrors.length > 0 && (
+          {/* Conditionally render Backend Errors only after successful analysis (or during analysis) */}
+          {!showFolderInput && backendErrors.length > 0 && (
             <div
               className="mt-4 bg-yellow-950/40 text-yellow-200 rounded-lg p-3 border border-yellow-900/30 text-xs space-y-1 overflow-y-auto max-h-32"
               role="alert"
