@@ -2,6 +2,7 @@ import { TreeNode } from '../types'; // Adjust path as necessary
 
 /**
  * Calculates the display path by removing the base folder path prefix.
+ * Assumes execution in an environment with Node.js 'path' module available (e.g., Electron main/renderer with nodeIntegration).
  *
  * @param fullPath The full path of the file or folder.
  * @param folderPath The base folder path that was initially analyzed.
@@ -9,10 +10,9 @@ import { TreeNode } from '../types'; // Adjust path as necessary
  */
 export const getDisplayPath = (fullPath: string, folderPath: string): string => {
   if (!folderPath) return fullPath;
-  // Ensure the prefix ends with a separator for accurate slicing
-  const prefix = folderPath.endsWith(require('path').sep)
-    ? folderPath
-    : folderPath + require('path').sep;
+  // NOTE: Relies on require('path').sep - ensure environment compatibility.
+  const separator = require('path').sep;
+  const prefix = folderPath.endsWith(separator) ? folderPath : folderPath + separator;
   // Check if the fullPath actually starts with the prefix before slicing
   return fullPath.startsWith(prefix) ? fullPath.slice(prefix.length) : fullPath;
 };

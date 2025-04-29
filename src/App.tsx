@@ -1,10 +1,26 @@
 import './index.css';
 import React, { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import { ResponsiveSunburst } from '@nivo/sunburst';
+import type { ComputedDatum, SunburstCustomLayerProps, DatumId } from '@nivo/sunburst'; // Import Nivo types
+import type { InheritedColorConfig, ColorModifier } from '@nivo/colors'; // Import color types
 import { TreeNode, ApiResponse } from './types';
 
 // --- Constants ---
 const VALUE_KEY = 'value';
+const ARC_LABEL_SKIP_ANGLE = 10;
+const ARC_LABEL_RADIUS_OFFSET = 0.5;
+const ARC_LABEL_FONT_WEIGHT = 'bolder'; // Use constant for theme
+// Explicitly type the modifier array to satisfy Nivo's expected type
+const ARC_LABEL_MODIFIER: ColorModifier[] = [['darker', 1.5]]; // Use constant
+
+// Define interface for the raw data node structure Nivo expects
+interface NivoDataNode {
+  id: string; // Ensure id is always string in our data
+  name: string;
+  children?: NivoDataNode[];
+  // value is only present on leaves initially
+  value?: number;
+}
 
 // --- Import Utilities ---
 import { formatSize } from './utils/formatting';
@@ -14,7 +30,7 @@ import {
   toNivoTree,
   calculateNivoTreeSize,
   calculateExtensionNivoSizes,
-  findNodeById,
+  findNodeById, // Note: findNodeById expects string ID
 } from './utils/treeUtils';
 import { filterTree, getFilteredOutTree } from './utils/filterUtils';
 
@@ -129,15 +145,18 @@ const DrilldownAlert: React.FC = () => (
 );
 
 const SunburstChart: React.FC<{
-  data: any;
-  onClick: (node: any) => void;
-  arcLabel: (d: any) => string;
-  tooltip: (node: any) => React.ReactNode;
+  // Data type updated slightly, could be NivoDataNode | null
+  data: NivoDataNode | null;
+  onClick: (node: ComputedDatum<NivoDataNode>) => void; // Update type here too
+  arcLabel: (d: ComputedDatum<NivoDataNode>) => string; // Update type
+  tooltip: (node: ComputedDatum<NivoDataNode>) => React.ReactNode; // Update type
 }> = memo(({ data, onClick, arcLabel, tooltip }) => {
+  if (!data) return null; // Render nothing if data is null
+
   return (
     <ResponsiveSunburst
       data={data}
-      value={VALUE_KEY}
+      value={VALUE_KEY} // Still using 'value' from leaf nodes
       cornerRadius={2}
       borderColor={{ from: 'color', modifiers: [['darker', 0.6]] }}
       colors={{ scheme: 'nivo' }}
@@ -148,13 +167,13 @@ const SunburstChart: React.FC<{
       tooltip={tooltip}
       enableArcLabels={true}
       arcLabel={arcLabel}
-      arcLabelsSkipAngle={10}
-      arcLabelsRadiusOffset={0.5}
-      arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 1.5]] }}
+      arcLabelsSkipAngle={ARC_LABEL_SKIP_ANGLE} // Use constant
+      arcLabelsRadiusOffset={ARC_LABEL_RADIUS_OFFSET} // Use constant
+      arcLabelsTextColor={{ from: 'color', modifiers: ARC_LABEL_MODIFIER }} // Use constant
       theme={{
         labels: {
           text: {
-            fontWeight: 'bolder',
+            fontWeight: ARC_LABEL_FONT_WEIGHT, // Use constant
           },
         },
       }}
@@ -166,8 +185,8 @@ const SunburstChart: React.FC<{
 const App: React.FC = () => {
   const [folderPath, setFolderPath] = useState<string>('');
   const [folderData, setFolderData] = useState<TreeNode | null>(null);
-  const [nivoData, setNivoData] = useState<any>(null);
-  const [nodeStack, setNodeStack] = useState<any[]>([]);
+  const [nivoData, setNivoData] = useState<NivoDataNode | null>(null);
+  const [nodeStack, setNodeStack] = useState<NivoDataNode[]>([]);
   const [searchText, setSearchText] = useState<string>('');
   const [extensionFilter, setExtensionFilter] = useState<string>('');
   const [debouncedSearchText, setDebouncedSearchText] = useState<string>('');
@@ -191,24 +210,24 @@ const App: React.FC = () => {
   // --- Handler for successful analysis ---
   const handleAnalysisSuccess = useCallback((treeData: TreeNode, path: string) => {
     setFolderData(treeData);
-    const nivoTree = toNivoTree(treeData, true);
-    setNivoData(nivoTree);
-    setNodeStack([nivoTree]);
-    setFolderPath(path); // Store the analyzed path for display
-    setShowFolderInput(false); // Hide input on success
-    // Clear previous filters/errors that might be lingering
+    const nivoTree = toNivoTree(treeData, true); // Returns any
+    setNivoData(nivoTree as NivoDataNode);
+    setNodeStack([nivoTree as NivoDataNode]);
+    setFolderPath(path);
+    setShowFolderInput(false);
+    // Clear previous filters/errors
     setSearchText('');
     setDebouncedSearchText('');
     setExtensionFilter('');
     setDebouncedExtensionFilter('');
     setError(null);
     setBackendErrors([]);
-  }, []); // Dependencies: The setters are stable
+  }, []);
 
   // --- Handler to start a new analysis ---
   const handleStartNewAnalysis = useCallback(() => {
-    setShowFolderInput(true); // Show input again
-    setFolderData(null); // Clear previous results/state
+    setShowFolderInput(true);
+    setFolderData(null);
     setNivoData(null);
     setNodeStack([]);
     setBackendErrors([]);
@@ -220,7 +239,7 @@ const App: React.FC = () => {
     setDebouncedSearchText('');
     setExtensionFilter('');
     setDebouncedExtensionFilter('');
-  }, []); // Dependencies: The setters are stable
+  }, []);
 
   // --- API Call (Updated) ---
   const sendFolderPathToBackend = useCallback(async (path: string) => {
@@ -282,26 +301,20 @@ const App: React.FC = () => {
   // const handleNoOpClick = useCallback(() => {}, []);
 
   // --- Memoized Data Calculations ---
-  // Define currentRoot early as handleClick depends on it
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
 
-  // Modify handleClick to find original node
+  // Modify handleClick to use the correct type and cast ID
   const handleClick = useCallback(
-    (node: any) => {
-      // node is from Nivo onClick
-      if (!node || !node.id) return; // Guard against missing node or id
-
-      // Find the corresponding node in the *current unfiltered view*
-      const originalNode = findNodeById(currentRoot, node.id);
-
+    (node: ComputedDatum<NivoDataNode>) => {
+      if (!node || !node.id) return;
+      // Cast node.id to string as findNodeById expects string
+      const originalNode = findNodeById(currentRoot, node.id as string);
       if (originalNode && originalNode.children && originalNode.children.length > 0) {
-        // If the original node is a directory, push ITS data onto the stack
-        setNodeStack((prevStack) => [...prevStack, originalNode]);
+        setNodeStack((prevStack) => [...prevStack, originalNode as NivoDataNode]);
       }
-      // If it's a file or not found, do nothing on click
     },
     [currentRoot]
-  ); // Dependency: currentRoot (to search in) and setNodeStack (stable)
+  );
 
   // Restore handleBack definition
   const handleBack = useCallback(() => {
@@ -313,29 +326,22 @@ const App: React.FC = () => {
     });
   }, []); // Dependency: setNodeStack (stable)
 
-  // Combine filteredRoot and filteredOutRoot calculation into one memo
+  // Combine filteredRoot and filteredOutRoot calculation
   const { filteredRoot, filteredOutRoot } = useMemo(() => {
     const filterIsOn = !!(debouncedSearchText || debouncedExtensionFilter);
-
     if (!filterIsOn) {
-      // No filter: matching is current, filtered out is null
-      // Use the already defined currentRoot
       return { filteredRoot: currentRoot, filteredOutRoot: null };
     }
-
-    // Filter is on: calculate matching part
-    const matching = filterTree(currentRoot, debouncedSearchText, debouncedExtensionFilter, true);
-
+    const matching = filterTree(currentRoot, debouncedSearchText, debouncedExtensionFilter, true); // Returns any
     if (!matching) {
-      // Filter matched nothing: matching is null, filtered out is current
-      // Use the already defined currentRoot
       return { filteredRoot: null, filteredOutRoot: currentRoot };
     }
-
-    // Filter matched something: calculate the difference for filtered out
-    const filteredOut = getFilteredOutTree(currentRoot, matching, true);
-    return { filteredRoot: matching, filteredOutRoot: filteredOut };
-  }, [currentRoot, debouncedSearchText, debouncedExtensionFilter]); // Depend only on view and filters
+    const filteredOut = getFilteredOutTree(currentRoot, matching, true); // Returns any
+    return {
+      filteredRoot: matching as NivoDataNode | null,
+      filteredOutRoot: filteredOut as NivoDataNode | null,
+    };
+  }, [currentRoot, debouncedSearchText, debouncedExtensionFilter]);
 
   // Calculate total sizes (now depend on the combined memo results)
   const totalSizeCurrent = useMemo(() => calculateNivoTreeSize(currentRoot), [currentRoot]);
@@ -373,17 +379,20 @@ const App: React.FC = () => {
   // isFilterActive can now use the debounced state directly
   const isFilterActive = (): boolean => !!(debouncedSearchText || debouncedExtensionFilter);
 
-  // --- Tooltip and ArcLabel Callbacks ---
+  // --- Tooltip and ArcLabel Callbacks (Update Types and cast ID) ---
   const SunburstTooltip = useCallback(
-    (node: any) => {
-      const displayPath = getDisplayPath(node.id, folderPath);
+    (node: ComputedDatum<NivoDataNode>) => {
+      // Cast node.id to string as getDisplayPath expects string
+      const displayPath = getDisplayPath(node.id as string, folderPath);
       const sizeStr = typeof node.value === 'number' ? formatSize(node.value) : 'N/A';
+      const nameStr = node.data.name || 'Unknown';
+
       return (
         <div
           className="bg-gray-900 text-gray-100 p-3 rounded-lg shadow-xl border border-gray-800"
-          aria-label={`Tooltip for ${node.data.name}`}
+          aria-label={`Tooltip for ${nameStr}`}
         >
-          <strong className="block text-sm font-medium">{node.data.name}</strong>
+          <strong className="block text-sm font-medium">{nameStr}</strong>
           <span className="text-sm text-gray-400">({sizeStr})</span>
           <div className="text-xs text-gray-500 mt-1">{displayPath}</div>
         </div>
@@ -392,7 +401,7 @@ const App: React.FC = () => {
     [folderPath]
   );
 
-  const arcLabel = useCallback((d: any) => {
+  const arcLabel = useCallback((d: ComputedDatum<NivoDataNode>) => {
     const sizeStr = typeof d.value === 'number' ? formatSize(d.value) : 'N/A';
     const nameStr = d.data.name || '';
     return `${nameStr}\n(${sizeStr})`;
@@ -458,6 +467,19 @@ const App: React.FC = () => {
                 onClear={handleClearFilter}
                 loading={loading}
               />
+            )}
+
+            {/* NEW: Display Active Filters */}
+            {isFilterActive() && !loading && folderData && (
+              <div className="text-xs text-gray-400 border-t border-gray-800/50 pt-3 mt-3">
+                Active Filters:
+                {debouncedSearchText && (
+                  <span className="block ml-2">- Text: "{debouncedSearchText}"</span>
+                )}
+                {debouncedExtensionFilter && (
+                  <span className="block ml-2">- Extension: {debouncedExtensionFilter}</span>
+                )}
+              </div>
             )}
 
             {/* Display Extension Breakdown - Make Collapsible */}
