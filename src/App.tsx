@@ -31,7 +31,7 @@ const FolderInput: React.FC<{
     <button
       onClick={onSubmit}
       className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
-      disabled={loading}
+      disabled={!folderPath || loading}
       aria-label="Analyze folder"
     >
       {loading ? 'Analyzing...' : 'Analyze Folder'}
@@ -170,24 +170,37 @@ const App: React.FC = () => {
   const [appliedExtension, setAppliedExtension] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [backendErrors, setBackendErrors] = useState<string[]>([]);
 
   // --- API Call ---
   const sendFolderPathToBackend = async (path: string) => {
     setLoading(true);
     setError(null);
+    setBackendErrors([]);
     try {
       const encodedPath = encodeURIComponent(path);
       const response = await fetch(`/api/analyze-folder/${encodedPath}`, {
         headers: { 'Content-Type': 'application/json' },
       });
       const data: ApiResponse = await response.json();
-      if (response.ok && data.tree) {
-        setFolderData(data.tree);
-        const nivoTree = toNivoTree(data.tree, true);
-        setNivoData(nivoTree);
-        setNodeStack([nivoTree]);
+
+      if (response.ok) {
+        if (data.tree) {
+          setFolderData(data.tree);
+          const nivoTree = toNivoTree(data.tree, true);
+          setNivoData(nivoTree);
+          setNodeStack([nivoTree]);
+        } else {
+          setError(data.message || 'Analysis completed but no data received.');
+          setFolderData(null);
+          setNivoData(null);
+          setNodeStack([]);
+        }
+        if (data.errors && data.errors.length > 0) {
+          setBackendErrors(data.errors);
+        }
       } else {
-        setError(data.message || 'Unknown error');
+        setError(data.message || 'Unknown error from server');
         setFolderData(null);
         setNivoData(null);
         setNodeStack([]);
@@ -197,6 +210,7 @@ const App: React.FC = () => {
       setFolderData(null);
       setNivoData(null);
       setNodeStack([]);
+      setBackendErrors([]);
     } finally {
       setLoading(false);
     }
@@ -223,17 +237,13 @@ const App: React.FC = () => {
   );
 
   const filteredOutRoot = useMemo(() => {
-    // Only calculate filtered-out data if a filter is active
     if (!appliedFilter && !appliedExtension) {
       return null;
     }
-    // Pass the original currentRoot and the already calculated filteredRoot
     return getFilteredOutTree(currentRoot, filteredRoot, true);
-  }, [currentRoot, filteredRoot, appliedFilter, appliedExtension]); // Depend on filteredRoot
+  }, [currentRoot, filteredRoot, appliedFilter, appliedExtension]);
 
-  const extensionOptions = Array.from(
-    getExtensionsFromTree(folderData) // Use original folderData for all extensions
-  ).sort();
+  const extensionOptions = Array.from(getExtensionsFromTree(folderData)).sort();
 
   // --- Helper functions for rendering logic ---
   const isFilterActive = (): boolean => !!(appliedFilter || appliedExtension);
@@ -333,6 +343,22 @@ const App: React.FC = () => {
               <DrilldownAlert />
             </div>
           )}
+
+          {backendErrors.length > 0 && (
+            <div
+              className="mt-4 bg-yellow-950/40 text-yellow-200 rounded-lg p-3 border border-yellow-900/30 text-xs space-y-1 overflow-y-auto max-h-32"
+              role="alert"
+            >
+              <p className="font-semibold text-yellow-100">
+                Note: Some items could not be accessed:
+              </p>
+              <ul className="list-disc list-inside pl-2">
+                {backendErrors.map((err, index) => (
+                  <li key={index}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Chart Area */}
@@ -362,54 +388,47 @@ const App: React.FC = () => {
           {!loading && !error && folderData && (
             <div
               className={`flex flex-1 min-h-0 ${
-                // Use flex-row for side-by-side whenever a filter is active
-                isFilterActive() ? 'flex-row' : 'flex-col' // Always row when filter active
+                isFilterActive() ? 'flex-row' : 'flex-col'
               } p-2 gap-2`}
             >
               {/* === Left Section (No Filter OR Matching Results / No Match Message) === */}
-              {
-                !isFilterActive() && currentRoot ? (
-                  // Case 1: No filter active, show the main chart taking full space
-                  <div className="flex-1 min-h-0">
-                    <SunburstChart
-                      data={currentRoot}
-                      onClick={handleClick}
-                      arcLabel={arcLabel}
-                      tooltip={SunburstTooltip}
-                    />
-                  </div>
-                ) : isFilterActive() ? (
-                  // Case 2: Filter is active, show this left section
-                  <div className="flex-1 min-h-0 flex flex-col">
-                    {filteredRoot ? (
-                      // Subcase 2a: Matching results exist
-                      <>
-                        <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
-                          Matching Results
-                        </h2>
-                        <div className="flex-1 min-h-0">
-                          <SunburstChart
-                            data={filteredRoot}
-                            onClick={handleClick}
-                            arcLabel={arcLabel}
-                            tooltip={SunburstTooltip}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      // Subcase 2b: No matching results
-                      <div className="flex-1 min-h-0 flex items-center justify-center text-gray-500">
-                        No items match the current filter.
+              {!isFilterActive() && currentRoot ? (
+                <div className="flex-1 min-h-0">
+                  <SunburstChart
+                    data={currentRoot}
+                    onClick={handleClick}
+                    arcLabel={arcLabel}
+                    tooltip={SunburstTooltip}
+                  />
+                </div>
+              ) : isFilterActive() ? (
+                <div className="flex-1 min-h-0 flex flex-col">
+                  {filteredRoot ? (
+                    <>
+                      <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
+                        Matching Results
+                      </h2>
+                      <div className="flex-1 min-h-0">
+                        <SunburstChart
+                          data={filteredRoot}
+                          onClick={handleClick}
+                          arcLabel={arcLabel}
+                          tooltip={SunburstTooltip}
+                        />
                       </div>
-                    )}
-                  </div>
-                ) : null /* Should not happen if folderData exists */
-              }
+                    </>
+                  ) : (
+                    <div className="flex-1 min-h-0 flex items-center justify-center text-gray-500">
+                      No items match the current filter.
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
               {/* === Right Section (Filtered Out Results) === */}
               {isFilterActive() && filteredOutRoot && (
                 <div className="flex-1 min-h-0 flex flex-col">
-                  {isFilterActive() && ( // Show title whenever filter is active
+                  {isFilterActive() && (
                     <h2 className="text-center text-sm font-semibold text-gray-400 mb-1 shrink-0 h-5">
                       Filtered Out
                     </h2>
@@ -417,7 +436,7 @@ const App: React.FC = () => {
                   <div className="flex-1 min-h-0 opacity-50">
                     <SunburstChart
                       data={filteredOutRoot}
-                      onClick={() => {}} // Disable click/drilldown on filtered out chart
+                      onClick={() => {}}
                       arcLabel={arcLabel}
                       tooltip={SunburstTooltip}
                     />

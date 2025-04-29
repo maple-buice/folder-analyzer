@@ -20,16 +20,23 @@ export const handleAnalyzeFolder = async (req: { params: { path: string } }): Pr
     }
 
     // Path is valid, proceed with asynchronous analysis
-    const tree = await processFilesAsync(folderPath);
-    return Response.json({ message: 'Folder analysis complete', tree } satisfies ApiResponse);
+    // Capture the result object containing the node and any errors
+    const { node: tree, errors: processErrors } = await processFilesAsync(folderPath);
+
+    // Return the tree and include any errors encountered during processing
+    return Response.json({
+      message: 'Folder analysis complete',
+      tree,
+      errors: processErrors,
+    } satisfies ApiResponse);
   } catch (err: any) {
-    // Handle errors from fs.stat (e.g., path doesn't exist) or processFilesAsync
+    // Handle errors from fs.stat (e.g., path doesn't exist) or fatal errors from processFilesAsync
     if (err.code === 'ENOENT') {
       return Response.json({ message: 'Folder does not exist', tree: null } satisfies ApiResponse, {
         status: 404,
       });
     }
-    // Handle permission errors from fs.stat or fs.readdir (potentially)
+    // Handle permission errors from fs.stat
     if (err.code === 'EACCES') {
       return Response.json(
         {
@@ -40,12 +47,13 @@ export const handleAnalyzeFolder = async (req: { params: { path: string } }): Pr
       );
     }
 
-    // Catch other errors (e.g., from readdir within processFilesAsync if re-thrown)
+    // Catch other errors
     console.error(`Error analyzing folder ${folderPath}:`, err);
     return Response.json(
       {
         message: `Error analyzing folder: ${err.message || 'Unknown error'}`,
-        tree: null,
+        tree: null, // Explicitly null tree on general error
+        // errors: [err.message || 'Unknown error'] // Optionally include the fatal error message here too
       } satisfies ApiResponse,
       { status: 500 }
     );

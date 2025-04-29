@@ -10,5 +10,6 @@ export interface TreeNode {
 
 export interface ApiResponse {
   message: string;
-  tree: TreeNode;
+  tree: TreeNode | null; // Allow null tree, e.g., on initial error
+  errors?: string[]; // Optional array for specific access errors during processing
 }
