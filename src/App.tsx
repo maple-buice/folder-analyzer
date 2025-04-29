@@ -1,5 +1,5 @@
 import './index.css';
-import React, { useState, useMemo, memo, useCallback } from 'react';
+import React, { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import { ResponsiveSunburst } from '@nivo/sunburst';
 import { TreeNode, ApiResponse } from './types';
 
@@ -45,7 +45,6 @@ const FilterBar: React.FC<{
   extensionFilter: string;
   setExtensionFilter: (v: string) => void;
   extensionOptions: string[];
-  onFilter: () => void;
   onClear: () => void;
   loading: boolean;
 }> = ({
@@ -54,14 +53,12 @@ const FilterBar: React.FC<{
   extensionFilter,
   setExtensionFilter,
   extensionOptions,
-  onFilter,
   onClear,
   loading,
 }) => (
   <form
     onSubmit={(e) => {
       e.preventDefault();
-      onFilter();
     }}
     className="flex flex-col gap-4"
     aria-label="Filter files and folders"
@@ -76,13 +73,6 @@ const FilterBar: React.FC<{
         aria-label="Search files or folders"
         disabled={loading}
       />
-      <button
-        type="submit"
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-        disabled={loading}
-      >
-        Filter
-      </button>
       <button
         type="button"
         className="bg-gray-800 text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700/50 whitespace-nowrap"
@@ -165,12 +155,26 @@ const App: React.FC = () => {
   const [nivoData, setNivoData] = useState<any>(null);
   const [nodeStack, setNodeStack] = useState<any[]>([]);
   const [searchText, setSearchText] = useState<string>('');
-  const [appliedFilter, setAppliedFilter] = useState<string>('');
   const [extensionFilter, setExtensionFilter] = useState<string>('');
-  const [appliedExtension, setAppliedExtension] = useState<string>('');
+  const [debouncedSearchText, setDebouncedSearchText] = useState<string>('');
+  const [debouncedExtensionFilter, setDebouncedExtensionFilter] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [backendErrors, setBackendErrors] = useState<string[]>([]);
+
+  // Debounce Effect for Search and Extension Filters
+  useEffect(() => {
+    // Set up a timer
+    const handler = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+      setDebouncedExtensionFilter(extensionFilter);
+    }, 300); // 300ms debounce delay
+
+    // Clear the timeout if the effect runs again before the timer expires
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchText, extensionFilter]); // Rerun effect if searchText or extensionFilter changes
 
   // --- API Call ---
   const sendFolderPathToBackend = useCallback(async (path: string) => {
@@ -217,16 +221,11 @@ const App: React.FC = () => {
   }, []);
 
   // --- Drilldown & Filtering Logic Callbacks ---
-  const handleFilter = useCallback(() => {
-    setAppliedFilter(searchText);
-    setAppliedExtension(extensionFilter);
-  }, [searchText, extensionFilter]);
-
   const handleClearFilter = useCallback(() => {
     setSearchText('');
-    setAppliedFilter('');
+    setDebouncedSearchText('');
     setExtensionFilter('');
-    setAppliedExtension('');
+    setDebouncedExtensionFilter('');
   }, []);
 
   const handleClick = useCallback((node: any) => {
@@ -250,16 +249,16 @@ const App: React.FC = () => {
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
 
   const filteredRoot = useMemo(
-    () => filterTree(currentRoot, appliedFilter, appliedExtension, true),
-    [currentRoot, appliedFilter, appliedExtension]
+    () => filterTree(currentRoot, debouncedSearchText, debouncedExtensionFilter, true),
+    [currentRoot, debouncedSearchText, debouncedExtensionFilter]
   );
 
   const filteredOutRoot = useMemo(() => {
-    if (!appliedFilter && !appliedExtension) {
+    if (!debouncedSearchText && !debouncedExtensionFilter) {
       return null;
     }
     return getFilteredOutTree(currentRoot, filteredRoot, true);
-  }, [currentRoot, filteredRoot, appliedFilter, appliedExtension]);
+  }, [currentRoot, filteredRoot, debouncedSearchText, debouncedExtensionFilter]);
 
   const extensionOptions = useMemo(() => {
     const sourceData = nivoData || (folderData ? toNivoTree(folderData, true) : null);
@@ -267,7 +266,7 @@ const App: React.FC = () => {
   }, [folderData, nivoData]);
 
   // --- Helper functions for rendering logic ---
-  const isFilterActive = (): boolean => !!(appliedFilter || appliedExtension);
+  const isFilterActive = (): boolean => !!(debouncedSearchText || debouncedExtensionFilter);
 
   // --- Tooltip and ArcLabel Callbacks ---
   const SunburstTooltip = useCallback(
@@ -323,7 +322,6 @@ const App: React.FC = () => {
               extensionFilter={extensionFilter}
               setExtensionFilter={setExtensionFilter}
               extensionOptions={extensionOptions}
-              onFilter={handleFilter}
               onClear={handleClearFilter}
               loading={loading}
             />
