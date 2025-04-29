@@ -1,15 +1,7 @@
 import { filterTree, getFilteredOutTree } from './filterUtils';
+import { NivoDataNode } from '../types'; // Import from centralized location
 
-// Mock NivoDataNode structure for testing
-// (Matches the interface defined in App.tsx)
-interface NivoDataNode {
-  id: string;
-  name: string;
-  children?: NivoDataNode[];
-  value?: number; // Only present on leaves in source data
-}
-
-// Sample data for testing
+// Sample data for testing (uses NivoDataNode type)
 const sampleTree: NivoDataNode = {
   id: '/root',
   name: 'root',

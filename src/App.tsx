@@ -3,7 +3,7 @@ import React, { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import { ResponsiveSunburst } from '@nivo/sunburst';
 import type { ComputedDatum } from '@nivo/sunburst'; // Import Nivo types
 import type { ColorModifier } from '@nivo/colors'; // Import color types
-import { TreeNode, ApiResponse } from './types';
+import { TreeNode, ApiResponse, NivoDataNode } from './types';
 
 // --- Constants ---
 const VALUE_KEY = 'value';
@@ -12,15 +12,6 @@ const ARC_LABEL_RADIUS_OFFSET = 0.5;
 const ARC_LABEL_FONT_WEIGHT = 'bolder'; // Use constant for theme
 // Explicitly type the modifier array to satisfy Nivo's expected type
 const ARC_LABEL_MODIFIER: ColorModifier[] = [['darker', 1.5]]; // Use constant
-
-// Define interface for the raw data node structure Nivo expects
-interface NivoDataNode {
-  id: string; // Ensure id is always string in our data
-  name: string;
-  children?: NivoDataNode[];
-  // value is only present on leaves initially
-  value?: number;
-}
 
 // --- Import Utilities ---
 import { formatSize } from './utils/formatting';

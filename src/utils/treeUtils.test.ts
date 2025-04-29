@@ -8,17 +8,9 @@ import {
   calculateExtensionNivoSizes,
   findNodeById,
 } from './treeUtils';
-import { TreeNode } from '../types'; // Import TreeNode type
+import { TreeNode, NivoDataNode } from '../types'; // Import TreeNode and NivoDataNode
 
-// Mock NivoDataNode structure (consistent with filterUtils tests)
-interface NivoDataNode {
-  id: string;
-  name: string;
-  children?: NivoDataNode[];
-  value?: number;
-}
-
-// Sample NivoDataNode data (can reuse structure from filterUtils)
+// Sample NivoDataNode data (uses NivoDataNode type)
 const sampleNivoTree: NivoDataNode = {
   id: '/root',
   name: 'root',
@@ -41,7 +33,7 @@ const sampleNivoTree: NivoDataNode = {
   ],
 };
 
-// Sample TreeNode data (matching the backend structure)
+// Sample TreeNode data (uses TreeNode type)
 const sampleTreeNode: TreeNode = {
   id: '/root',
   name: 'root',
