@@ -95,4 +95,10 @@ Contributions are welcome! Please open issues or pull requests for bugs, feature
 
 ## Screenshot
 
-![Screenshot](docs/screenshot.png)
+**Unfiltered View:**
+
+![Unfiltered Screenshot](docs/screenshots/unfiltered.png)
+
+**Filtered View (Example):**
+
+![Filtered Screenshot](docs/screenshots/filtered.png)
