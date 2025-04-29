@@ -246,22 +246,79 @@ const App: React.FC = () => {
       node.id.toLowerCase().includes(searchLower);
     const matchesExt =
       !extLower || (node.children ? false : node.name.toLowerCase().endsWith(extLower));
+    const passesFilter = matchesText && matchesExt;
+
     if (node.children && node.children.length > 0) {
       const filteredChildren = node.children
         .map((child: any) => filterTree(child, search, ext, false))
         .filter(Boolean);
-      if (filteredChildren.length > 0 || (matchesText && matchesExt)) {
+
+      if (filteredChildren.length > 0 || (isRoot && passesFilter)) {
         const totalValue = filteredChildren.reduce(
           (acc: number, child: any) => acc + (child.value ?? 0),
           0
         );
         const result: any = { ...node, children: filteredChildren };
-        if (!isRoot) result.value = totalValue;
+        if (filteredChildren.length > 0) {
+          result.value = totalValue;
+        } else {
+          delete result.value;
+        }
         return result;
       }
+      return null; // Node and its children don't match
+    }
+
+    // Leaf node
+    return passesFilter ? node : null;
+  }
+
+  function getFilteredOutTree(originalNode: any, filteredNode: any, isRoot = false): any | null {
+    if (!originalNode) return null;
+
+    // If the filtered node doesn't exist, the original node was entirely filtered out
+    if (!filteredNode) {
+      return originalNode;
+    }
+
+    // If it's a leaf node and it exists in the filtered tree, it wasn't filtered out
+    if (!originalNode.children || originalNode.children.length === 0) {
       return null;
     }
-    return matchesText && matchesExt ? node : null;
+
+    // If it's an internal node, compare children
+    const filteredOutChildren: any[] = [];
+    const filteredChildrenMap = new Map(
+      filteredNode.children?.map((child: any) => [child.id, child]) ?? []
+    );
+
+    for (const originalChild of originalNode.children) {
+      const filteredChild = filteredChildrenMap.get(originalChild.id);
+      const filteredOutSubtree = getFilteredOutTree(originalChild, filteredChild, false);
+      if (filteredOutSubtree) {
+        filteredOutChildren.push(filteredOutSubtree);
+      }
+    }
+
+    if (filteredOutChildren.length > 0) {
+      const totalValue = filteredOutChildren.reduce(
+        (acc: number, child: any) => acc + (child.value ?? 0),
+        0
+      );
+      const result: any = {
+        ...originalNode,
+        children: filteredOutChildren,
+        value: totalValue, // Sum up the values of the filtered-out children
+      };
+      // Prevent assigning value to the root if children exist
+      if (isRoot && result.children?.length > 0) {
+        delete result.value;
+      }
+      return result;
+    }
+
+    // If no children were filtered out, this node itself wasn't (partially) filtered out
+    return null;
   }
 
   // --- Drilldown ---
@@ -278,11 +335,29 @@ const App: React.FC = () => {
 
   // --- Memoized Data ---
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
+
   const filteredRoot = useMemo(
     () => filterTree(currentRoot, appliedFilter, appliedExtension, true),
     [currentRoot, appliedFilter, appliedExtension]
   );
-  const extensionOptions = Array.from(getExtensionsFromTree(currentRoot)).sort();
+
+  const filteredOutRoot = useMemo(() => {
+    // Only calculate filtered-out data if a filter is active
+    if (!appliedFilter && !appliedExtension) {
+      return null;
+    }
+    // Pass the original currentRoot and the already calculated filteredRoot
+    return getFilteredOutTree(currentRoot, filteredRoot, true);
+  }, [currentRoot, filteredRoot, appliedFilter, appliedExtension]); // Depend on filteredRoot
+
+  const extensionOptions = Array.from(
+    getExtensionsFromTree(folderData) // Use original folderData for all extensions
+  ).sort();
+
+  // --- Helper functions for rendering logic ---
+  const isFilterActive = (): boolean => !!(appliedFilter || appliedExtension);
+  const shouldShowSideBySide = (): boolean =>
+    isFilterActive() && !!filteredRoot && !!filteredOutRoot;
 
   // --- Tooltip ---
   const SunburstTooltip = (node: any) => {
@@ -380,22 +455,96 @@ const App: React.FC = () => {
         </div>
 
         {/* Chart Area */}
-        <div className="min-h-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20">
-          <div className="w-full h-full p-2">
-            {filteredRoot && !loading && (
-              <SunburstChart
-                data={filteredRoot}
-                onClick={handleClick}
-                arcLabel={arcLabel}
-                tooltip={SunburstTooltip}
-              />
-            )}
-            {loading && (
-              <div className="flex items-center justify-center h-full">
-                <span className="loader" aria-label="Loading" />
-              </div>
-            )}
-          </div>
+        <div className="min-h-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 flex flex-col overflow-hidden">
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center h-full">
+              <span className="loader" aria-label="Loading" />
+            </div>
+          )}
+
+          {/* Error State */}
+          {!loading && error && (
+            <div className="flex items-center justify-center h-full text-red-400 p-4">
+              Error: {error}
+            </div>
+          )}
+
+          {/* Initial State (No Data) */}
+          {!loading && !error && !folderData && (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              Enter a folder path above and click "Analyze Folder" to start.
+            </div>
+          )}
+
+          {/* Data Loaded State */}
+          {!loading && !error && folderData && (
+            <div
+              className={`flex flex-1 min-h-0 ${
+                // Use flex-row for side-by-side whenever a filter is active
+                isFilterActive() ? 'flex-row' : 'flex-col' // Always row when filter active
+              } p-2 gap-2`}
+            >
+              {/* === Left Section (No Filter OR Matching Results / No Match Message) === */}
+              {
+                !isFilterActive() && currentRoot ? (
+                  // Case 1: No filter active, show the main chart taking full space
+                  <div className="flex-1 min-h-0">
+                    <SunburstChart
+                      data={currentRoot}
+                      onClick={handleClick}
+                      arcLabel={arcLabel}
+                      tooltip={SunburstTooltip}
+                    />
+                  </div>
+                ) : isFilterActive() ? (
+                  // Case 2: Filter is active, show this left section
+                  <div className="flex-1 min-h-0 flex flex-col">
+                    {filteredRoot ? (
+                      // Subcase 2a: Matching results exist
+                      <>
+                        <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
+                          Matching Results
+                        </h2>
+                        <div className="flex-1 min-h-0">
+                          <SunburstChart
+                            data={filteredRoot}
+                            onClick={handleClick}
+                            arcLabel={arcLabel}
+                            tooltip={SunburstTooltip}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      // Subcase 2b: No matching results
+                      <div className="flex-1 min-h-0 flex items-center justify-center text-gray-500">
+                        No items match the current filter.
+                      </div>
+                    )}
+                  </div>
+                ) : null /* Should not happen if folderData exists */
+              }
+
+              {/* === Right Section (Filtered Out Results) === */}
+              {isFilterActive() && filteredOutRoot && (
+                <div className="flex-1 min-h-0 flex flex-col">
+                  {isFilterActive() && ( // Show title whenever filter is active
+                    <h2 className="text-center text-sm font-semibold text-gray-400 mb-1 shrink-0 h-5">
+                      Filtered Out
+                    </h2>
+                  )}
+                  <div className="flex-1 min-h-0 opacity-50">
+                    <SunburstChart
+                      data={filteredOutRoot}
+                      onClick={() => {}} // Disable click/drilldown on filtered out chart
+                      arcLabel={arcLabel}
+                      tooltip={SunburstTooltip}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
