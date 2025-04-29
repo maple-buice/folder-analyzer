@@ -1,5 +1,5 @@
 import './index.css';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo, useCallback } from 'react';
 import { ResponsiveSunburst } from '@nivo/sunburst';
 import { TreeNode, ApiResponse } from './types';
 
@@ -138,7 +138,7 @@ const SunburstChart: React.FC<{
   onClick: (node: any) => void;
   arcLabel: (d: any) => string;
   tooltip: (node: any) => React.ReactNode;
-}> = ({ data, onClick, arcLabel, tooltip }) => (
+}> = memo(({ data, onClick, arcLabel, tooltip }) => (
   <ResponsiveSunburst
     data={data}
     value={VALUE_KEY}
@@ -156,7 +156,7 @@ const SunburstChart: React.FC<{
     arcLabelsRadiusOffset={0.8}
     arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
   />
-);
+));
 
 // --- Main App ---
 const App: React.FC = () => {
@@ -173,7 +173,7 @@ const App: React.FC = () => {
   const [backendErrors, setBackendErrors] = useState<string[]>([]);
 
   // --- API Call ---
-  const sendFolderPathToBackend = async (path: string) => {
+  const sendFolderPathToBackend = useCallback(async (path: string) => {
     setLoading(true);
     setError(null);
     setBackendErrors([]);
@@ -214,21 +214,39 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // --- Drilldown ---
-  const handleClick = (node: any) => {
-    if (node.data.children) {
-      setNodeStack([...nodeStack, node.data]);
-    }
-  };
-  const handleBack = () => {
-    if (nodeStack.length > 1) {
-      setNodeStack(nodeStack.slice(0, -1));
-    }
-  };
+  // --- Drilldown & Filtering Logic Callbacks ---
+  const handleFilter = useCallback(() => {
+    setAppliedFilter(searchText);
+    setAppliedExtension(extensionFilter);
+  }, [searchText, extensionFilter]);
 
-  // --- Memoized Data ---
+  const handleClearFilter = useCallback(() => {
+    setSearchText('');
+    setAppliedFilter('');
+    setExtensionFilter('');
+    setAppliedExtension('');
+  }, []);
+
+  const handleClick = useCallback((node: any) => {
+    if (node.data.children && node.data.children.length > 0) {
+      setNodeStack((prevStack) => [...prevStack, node.data]);
+    }
+  }, []);
+
+  const handleBack = useCallback(() => {
+    setNodeStack((prevStack) => {
+      if (prevStack.length > 1) {
+        return prevStack.slice(0, -1);
+      }
+      return prevStack;
+    });
+  }, []);
+
+  const handleNoOpClick = useCallback(() => {}, []);
+
+  // --- Memoized Data Calculations ---
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
 
   const filteredRoot = useMemo(
@@ -243,28 +261,38 @@ const App: React.FC = () => {
     return getFilteredOutTree(currentRoot, filteredRoot, true);
   }, [currentRoot, filteredRoot, appliedFilter, appliedExtension]);
 
-  const extensionOptions = Array.from(getExtensionsFromTree(folderData)).sort();
+  const extensionOptions = useMemo(() => {
+    const sourceData = nivoData || (folderData ? toNivoTree(folderData, true) : null);
+    return Array.from(getExtensionsFromTree(sourceData)).sort();
+  }, [folderData, nivoData]);
 
   // --- Helper functions for rendering logic ---
   const isFilterActive = (): boolean => !!(appliedFilter || appliedExtension);
-  const shouldShowSideBySide = (): boolean =>
-    isFilterActive() && !!filteredRoot && !!filteredOutRoot;
 
-  // --- Tooltip ---
-  const SunburstTooltip = (node: any) => {
-    const displayPath = getDisplayPath(node.id, folderPath);
-    return (
-      <div
-        className="bg-gray-900 text-gray-100 p-3 rounded-lg shadow-xl border border-gray-800"
-        aria-label={`Tooltip for ${node.data.name}`}
-      >
-        <strong className="block text-sm font-medium">{node.data.name}</strong>
-        <span className="text-sm text-gray-400">({formatSize(node.data.value)})</span>
-        <div className="text-xs text-gray-500 mt-1">{displayPath}</div>
-      </div>
-    );
-  };
-  const arcLabel = (d: any) => `${d.data.name}\n(${formatSize(d.data.value)})`;
+  // --- Tooltip and ArcLabel Callbacks ---
+  const SunburstTooltip = useCallback(
+    (node: any) => {
+      const displayPath = getDisplayPath(node.id, folderPath);
+      const sizeStr = typeof node.value === 'number' ? formatSize(node.value) : 'N/A';
+      return (
+        <div
+          className="bg-gray-900 text-gray-100 p-3 rounded-lg shadow-xl border border-gray-800"
+          aria-label={`Tooltip for ${node.data.name}`}
+        >
+          <strong className="block text-sm font-medium">{node.data.name}</strong>
+          <span className="text-sm text-gray-400">({sizeStr})</span>
+          <div className="text-xs text-gray-500 mt-1">{displayPath}</div>
+        </div>
+      );
+    },
+    [folderPath]
+  );
+
+  const arcLabel = useCallback((d: any) => {
+    const sizeStr = typeof d.data.value === 'number' ? formatSize(d.data.value) : 'N/A';
+    const nameStr = d.data.name || '';
+    return `${nameStr}\n(${sizeStr})`;
+  }, []);
 
   // --- Render ---
   return (
@@ -289,26 +317,16 @@ const App: React.FC = () => {
               onSubmit={() => folderPath && sendFolderPathToBackend(folderPath)}
               loading={loading}
             />
-            {folderData && (
-              <FilterBar
-                searchText={searchText}
-                setSearchText={setSearchText}
-                extensionFilter={extensionFilter}
-                setExtensionFilter={setExtensionFilter}
-                extensionOptions={extensionOptions}
-                onFilter={() => {
-                  setAppliedFilter(searchText);
-                  setAppliedExtension(extensionFilter);
-                }}
-                onClear={() => {
-                  setSearchText('');
-                  setAppliedFilter('');
-                  setExtensionFilter('');
-                  setAppliedExtension('');
-                }}
-                loading={loading}
-              />
-            )}
+            <FilterBar
+              searchText={searchText}
+              setSearchText={setSearchText}
+              extensionFilter={extensionFilter}
+              setExtensionFilter={setExtensionFilter}
+              extensionOptions={extensionOptions}
+              onFilter={handleFilter}
+              onClear={handleClearFilter}
+              loading={loading}
+            />
             {nodeStack.length > 1 && (
               <button
                 onClick={handleBack}
@@ -436,7 +454,7 @@ const App: React.FC = () => {
                   <div className="flex-1 min-h-0 opacity-50">
                     <SunburstChart
                       data={filteredOutRoot}
-                      onClick={() => {}}
+                      onClick={handleNoOpClick}
                       arcLabel={arcLabel}
                       tooltip={SunburstTooltip}
                     />
