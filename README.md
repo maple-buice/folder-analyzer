@@ -4,13 +4,27 @@
 
 **Visualize your folder structure and file sizes as an interactive sunburst chart. Drill down, filter by name or extension, and explore your disk usage visually.**
 
+## Screenshots
+
+**Unfiltered View:**
+
+![Unfiltered Screenshot](docs/screenshots/unfiltered.png)
+
+**Filtered View (Example):**
+
+![Filtered Screenshot](docs/screenshots/filtered.png)
+
 ## Features
 
-- Visualizes folder structure and file sizes as an interactive sunburst chart
-- Drilldown and zoom out navigation
-- Filter by file/folder name and extension
-- Tooltips and arc labels show file/folder names and sizes (in KB/MB)
-- Modern, responsive UI built with React and Tailwind CSS
+- **Interactive Sunburst Chart:** Visualizes folder structure and relative file sizes.
+- **Drilldown Navigation:** Click folders to zoom in, use the "Back" button to zoom out.
+- **Dynamic Filtering:** Filter the view by file/folder name (substring match) and/or file extension.
+- **Dual Chart View:** When filtering, see both the "Matching Results" and "Filtered Out" portions.
+- **Informative Tooltips:** Hover over segments for details (name, size, relative path).
+- **Clear Arc Labels:** Segment names and calculated sizes displayed on arcs.
+- **Extension Breakdown:** See total sizes per extension in filtered/unfiltered views.
+- **Responsive UI:** Built with React and Tailwind CSS for modern look and feel.
+- **Backend Error Handling:** Displays non-fatal errors from the backend (e.g., permission denied on specific subfolders).
 
 ## Setup
 
@@ -20,85 +34,114 @@ Install dependencies:
 bun install
 ```
 
-Start the development server:
+Start the development server (frontend and Go backend concurrently):
 
 ```bash
 bun dev
 ```
 
-For production:
+Alternatively, run frontend only:
 
 ```bash
-bun start
+bun run dev:frontend
+```
+
+Or backend only:
+
+```bash
+bun run dev:backend
 ```
 
 ## Usage
 
-1. Enter the path to the folder you want to analyze in the input box.
-2. Click "Analyze Folder".
-3. Explore the sunburst chart:
-   - Hover over arcs to see tooltips with name, size, and path.
-   - Click a folder to zoom in; use the Back button to zoom out.
-   - Use the filter bar to search by name or extension.
-
-## Customization
-
-- You can adjust the sunburst appearance (colors, label angles, etc.) in the `ResponsiveSunburst` props in `src/App.tsx`.
+1.  Ensure the backend is running (`bun dev` or `bun run dev:backend`).
+2.  Open the application in your browser (usually `http://localhost:5173` if using `bun dev`).
+3.  Enter the **absolute path** to the folder you want to analyze in the input box.
+4.  Click "Analyze".
+5.  Explore the sunburst chart:
+    *   Hover over arcs to see tooltips.
+    *   Click a folder segment to zoom in.
+    *   Use the **Back** button in the control panel to zoom out.
+    *   Use the filter bar to search by name or select an extension.
+    *   Use the **Clear** button to remove filters.
+    *   Use the **Change** button next to the analyzed path to start a new analysis.
 
 ## Tech Stack
 
-- [Bun](https://bun.sh) (runtime & dev server)
-- [React](https://react.dev/) (UI)
-- [Tailwind CSS](https://tailwindcss.com/) (styling)
-- [Nivo Sunburst](https://nivo.rocks/sunburst/) (visualization)
+- **Frontend:**
+    - [React](https://react.dev/) (UI Library)
+    - [TypeScript](https://www.typescriptlang.org/)
+    - [Tailwind CSS](https://tailwindcss.com/) (Styling)
+    - [Nivo Sunburst](https://nivo.rocks/sunburst/) (Visualization)
+    - [Vite](https://vitejs.dev/) (Build Tool / Dev Server)
+- **Backend:**
+    - [Go](https://go.dev/)
+    - Standard Library (file system access, JSON handling, HTTP server)
+- **Development:**
+    - [Bun](https://bun.sh/) (Runtime, package manager, script runner)
+    - [ESLint](https://eslint.org/) / [Prettier](https://prettier.io/) (Linting / Formatting)
+    - [concurrently](https://github.com/open-cli-tools/concurrently) (Running frontend/backend together)
+
+## Development Scripts
+
+- `bun dev`: Run frontend (Vite) and backend (Go) servers concurrently.
+- `bun run dev:frontend`: Run only the frontend Vite dev server.
+- `bun run dev:backend`: Run only the Go backend server.
+- `bun run build`: Build the frontend for production.
+- `bun run lint`: Lint the codebase.
+- `bun run format`: Format the codebase.
+- `bun run type-check`: Run TypeScript type checking.
+- `bun run test`: Run tests (if configured).
 
 ## API Example
 
-The backend exposes a single endpoint:
+The backend exposes a single primary endpoint:
 
 ```
-GET /api/analyze-folder/:path
+GET /api/analyze-folder/:encodedPath
 ```
 
-Returns JSON:
+Where `:encodedPath` is the URL-encoded absolute path of the folder to analyze.
+
+**Successful Response (Example):**
 
 ```json
 {
   "message": "Folder analysis complete",
   "tree": {
-    "id": "/path/to/folder",
-    "name": "root",
+    "id": "/Users/mbuice/src", // Absolute path used as ID
+    "name": "src",             // Base name of the folder
     "children": [
-      { "id": "/path/to/folder/file.txt", "name": "file.txt", "size": 1234, "key": "/path/to/folder/file.txt" },
-      { "id": "/path/to/folder/subdir", "name": "subdir", "children": [...], "size": 5678, "key": "/path/to/folder/subdir" }
+      { "id": "/Users/mbuice/src/file1.go", "name": "file1.go", "size": 1024 },
+      {
+        "id": "/Users/mbuice/src/subdir",
+        "name": "subdir",
+        "children": [
+           { "id": "/Users/mbuice/src/subdir/file2.txt", "name": "file2.txt", "size": 500 }
+        ],
+        "size": 500 // Directory size reflects sum of contents
+      }
     ],
-    "size": 6912,
-    "key": "/path/to/folder"
-  }
+    "size": 1524 // Root size reflects sum of all contents
+  },
+  "errors": [] // List of non-fatal errors (e.g., permission denied strings)
 }
 ```
 
-## Development
+**Error Response (Example):**
 
-- Run lint: `bun run lint`
-- Run formatter: `bun run format`
-- Type-check: `bun run type-check`
-- Run tests: `bun run test`
+```json
+{
+  "message": "Error analyzing folder: directory not found",
+  "tree": null,
+  "errors": ["directory not found"]
+}
+```
 
 ## Contributing
 
 Contributions are welcome! Please open issues or pull requests for bugs, features, or improvements.
 
-1. Fork the repo and create a branch.
-2. Run lint, format, and type-check before submitting.
-3. Add/adjust tests for new features.
-
-## Screenshot
-
-**Unfiltered View:**
-
-![Unfiltered Screenshot](docs/screenshots/unfiltered.png)
-
-**Filtered View (Example):**
-
-![Filtered Screenshot](docs/screenshots/filtered.png)
+1.  Fork the repo and create a branch.
+2.  Run `bun run lint`, `bun run format`, and `bun run type-check` before submitting.
+3.  Add/adjust tests for new features if applicable.
