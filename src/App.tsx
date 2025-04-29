@@ -343,8 +343,9 @@ const App: React.FC = () => {
         </p>
       </header>
 
+      {/* Remove explicit grid row sizing */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 p-4 pb-6 overflow-hidden">
-        {/* Controls Panel */}
+        {/* Controls Panel (Grid Item 1) */}
         <div className="lg:sticky lg:top-4 overflow-y-auto">
           <div className="bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl p-4 space-y-4 border border-gray-800/20">
             {/* Conditionally show Folder Input or Analyzed Path */}
@@ -437,25 +438,25 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Chart Area */}
-        <div className="min-h-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 flex flex-col overflow-hidden">
+        {/* Chart Area (Grid Item 2) - Keep h-full */}
+        <div className="min-h-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 flex flex-col overflow-hidden h-full">
           {/* Loading State */}
           {loading && (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-screen">
               <span className="loader" aria-label="Loading" />
             </div>
           )}
 
           {/* Error State */}
           {!loading && error && (
-            <div className="flex items-center justify-center h-full text-red-400 p-4">
+            <div className="flex items-center justify-center h-screen text-red-400 p-4">
               Error: {error}
             </div>
           )}
 
           {/* Initial State (No Data) */}
           {!loading && !error && !folderData && (
-            <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="flex items-center justify-center h-screen text-gray-500">
               Enter a folder path above and click "Analyze Folder" to start.
             </div>
           )}
@@ -463,7 +464,7 @@ const App: React.FC = () => {
           {/* Data Loaded State */}
           {!loading && !error && folderData && (
             <div
-              className={`flex flex-1 min-h-0 ${
+              className={`flex h-screen min-h-0 ${
                 isFilterActive() ? 'flex-row' : 'flex-col'
               } p-2 gap-2`}
             >
