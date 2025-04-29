@@ -30,11 +30,11 @@ const FolderInput: React.FC<{
     />
     <button
       onClick={onSubmit}
-      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
+      className="px-4 py-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-white bg-blue-600 hover:bg-blue-700"
       disabled={!folderPath || loading}
-      aria-label="Analyze folder"
+      aria-label="Analyze"
     >
-      {loading ? 'Analyzing...' : 'Analyze Folder'}
+      {loading ? 'Analyzing...' : 'Analyze'}
     </button>
   </div>
 );
@@ -75,7 +75,7 @@ const FilterBar: React.FC<{
       />
       <button
         type="button"
-        className="bg-gray-800 text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700/50 whitespace-nowrap"
+        className="px-4 py-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700/50"
         onClick={onClear}
         disabled={loading}
       >
