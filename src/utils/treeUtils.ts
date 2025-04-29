@@ -62,7 +62,7 @@ export function toNivoTree(node: TreeNode, isRoot = false): any {
   }
   // Leaf node (file): return its basic info including size as value
   // Use a minimal value (e.g., 1) if size is missing or zero to ensure visibility
-  return { id: node.id, name: node.name, value: node.size ?? 1 };
+  return { id: node.id, name: node.name, value: node.size || 1 };
 }
 
 /**

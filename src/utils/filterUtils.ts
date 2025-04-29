@@ -6,34 +6,47 @@
  * @param search The search string (case-insensitive).
  * @param ext The file extension filter (case-insensitive, expects format like '.js').
  * @param isRoot Flag indicating if the current node is the root of the tree being filtered.
+ * @param parentMatchedText Internal flag indicating if the parent node already matched the text filter.
  * @returns The filtered node (or null if the node and its descendants don't match).
  */
-export function filterTree(node: any, search: string, ext: string, isRoot = false): any | null {
+export function filterTree(
+  node: any,
+  search: string,
+  ext: string,
+  isRoot = false,
+  parentMatchedText = false
+): any | null {
   if (!node) return null;
 
   // Prepare filter criteria (lowercase)
   const searchLower = search ? search.toLowerCase() : '';
   const extLower = ext ? (ext.startsWith('.') ? ext.toLowerCase() : '.' + ext.toLowerCase()) : '';
 
-  // Determine if the current node itself matches the filters
+  // Determine if the current node itself matches the filters individually
   const matchesText =
     !searchLower ||
     node.name.toLowerCase().includes(searchLower) ||
-    node.id.toLowerCase().includes(searchLower); // Check id (full path) too
+    node.id.toLowerCase().includes(searchLower);
+  // Extension match logic depends on whether it's a file or if parent forced inclusion via text match
   const matchesExt =
-    !extLower || // Pass if no extension filter
-    (node.children ? false : node.name.toLowerCase().endsWith(extLower)); // Only check extension for leaf nodes (files)
-  const passesFilter = matchesText && matchesExt;
+    !extLower || (node.children ? parentMatchedText : node.name.toLowerCase().endsWith(extLower));
 
   // --- Internal Node (Directory) --- //
   if (node.children && node.children.length > 0) {
+    // If this parent node matches an *active* text filter, its children should ignore the text filter (pass down true)
+    const passDownParentMatchedText = parentMatchedText || (matchesText && !!searchLower);
+
     // Recursively filter children
     const filteredChildren = node.children
-      .map((child: any) => filterTree(child, search, ext, false)) // Recurse
+      .map((child: any) => filterTree(child, search, ext, false, passDownParentMatchedText)) // Pass flag down
       .filter(Boolean); // Remove null results (children that didn't match)
 
-    // Keep this internal node if: 1) It has filtered children OR 2) It's the root node and it matches the filter directly
-    if (filteredChildren.length > 0 || (isRoot && passesFilter)) {
+    // Keep this internal node if:
+    // 1. It has children that passed the filter OR
+    // 2. It matches an ACTIVE text filter (searchLower is not empty)
+    const keepInternal = filteredChildren.length > 0 || (matchesText && !!searchLower);
+
+    if (keepInternal) {
       const result: any = { ...node, children: filteredChildren };
 
       // Nivo might implicitly calculate parent value from leaves, so remove explicit value
@@ -45,8 +58,20 @@ export function filterTree(node: any, search: string, ext: string, isRoot = fals
   }
 
   // --- Leaf Node (File) --- //
-  // Keep the leaf node only if it passes the filter
-  return passesFilter ? node : null;
+  let keep = true; // Assume keep unless a filter excludes it
+
+  // Check extension filter first (applies regardless of parent)
+  if (extLower && !matchesExt) {
+    keep = false;
+  }
+
+  // If still potentially kept, check text filter
+  // Exclude only if text filter is active, AND leaf doesn't match text, AND parent didn't match text
+  if (keep && searchLower && !matchesText && !parentMatchedText) {
+    keep = false;
+  }
+
+  return keep ? node : null;
 }
 
 /**
