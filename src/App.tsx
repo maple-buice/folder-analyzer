@@ -7,12 +7,15 @@ import { TreeNode, ApiResponse, NivoDataNode } from './types';
 
 // --- Constants ---
 const VALUE_KEY = 'value';
-const ARC_LABEL_SKIP_ANGLE = 10;
+const ARC_LABEL_SKIP_ANGLE = 20;
 const ARC_LABEL_RADIUS_OFFSET = 0.5;
 const ARC_LABEL_FONT_WEIGHT = 'bolder'; // Use constant
 // Explicitly type the modifier array to satisfy Nivo's expected type
 const ARC_LABEL_MODIFIER: ColorModifier[] = [['darker', 1.5]]; // Use constant
-const DEFAULT_EXCLUSIONS = ['node_modules', 'dist', 'target', '.git']; // Common folders to exclude by default
+const DEFAULT_EXCLUSIONS = ['node_modules', 'dist', 'target', '.git', '.idea', '.vscode']; // Common folders to exclude by default
+const NODE_COUNT_THRESHOLD = 10000; // Prune if total nodes exceed this
+const FULL_DEPTH = 1000; // Effective infinity for Nivo
+const MIN_PRUNE_DEPTH = 3; // Don't prune shallower than this
 
 // --- Import Utilities ---
 import { formatSize } from './utils/formatting';
@@ -22,6 +25,10 @@ import {
   calculateNivoTreeSize,
   calculateExtensionNivoSizes,
   findNodeById, // Note: findNodeById expects string ID
+  pruneTreeDepth,
+  calculateNivoTreeNodeCount, // Import counter
+  calculateNodesPerDepth, // Import new util
+  calculateDynamicDepth, // Import the new dynamic depth calculator
 } from './utils/treeUtils';
 import { filterTree, getFilteredOutTree } from './utils/filterUtils';
 
@@ -196,7 +203,7 @@ const SunburstChart: React.FC<{
       borderColor={{ from: 'color', modifiers: [['darker', 0.6]] }}
       colors={{ scheme: 'nivo' }}
       childColor={{ from: 'color' }}
-      animate={true}
+      animate={false}
       motionConfig="gentle"
       onClick={onClick}
       tooltip={tooltip}
@@ -350,17 +357,28 @@ const App: React.FC = () => {
   // --- Memoized Data Calculations ---
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
 
-  // Modify handleClick to use the correct type and cast ID
+  // Calculate effective depth based on node count and distribution
+  const effectiveMaxDepth = useMemo(() => {
+    // Call the extracted utility function
+    return calculateDynamicDepth(currentRoot, NODE_COUNT_THRESHOLD, MIN_PRUNE_DEPTH, FULL_DEPTH);
+  }, [currentRoot]); // Keep dependency on currentRoot
+
+  // Prune the current view using the dynamic depth
+  const prunedCurrentRoot = useMemo(
+    () => pruneTreeDepth(currentRoot, effectiveMaxDepth),
+    [currentRoot, effectiveMaxDepth]
+  );
+
   const handleClick = useCallback(
     (node: ComputedDatum<NivoDataNode>) => {
       if (!node || !node.id) return;
-      // Cast node.id to string as findNodeById expects string
+      // Find node in the ORIGINAL data for drilldown, not the pruned version
       const originalNode = findNodeById(currentRoot, node.id as string);
       if (originalNode && originalNode.children && originalNode.children.length > 0) {
         setNodeStack((prevStack) => [...prevStack, originalNode as NivoDataNode]);
       }
     },
-    [currentRoot]
+    [currentRoot] // Keep dependency on original currentRoot for finding nodes
   );
 
   // Restore handleBack definition
@@ -373,38 +391,56 @@ const App: React.FC = () => {
     });
   }, []); // Dependency: setNodeStack (stable)
 
-  // Combine filteredRoot and filteredOutRoot calculation
-  const { filteredRoot, filteredOutRoot } = useMemo(() => {
+  // Filter the PRUNED data
+  const { filteredPrunedRoot, filteredOutPrunedRoot } = useMemo(() => {
     const filterIsOn = !!(debouncedSearchText || debouncedExtensionFilter);
+    if (!prunedCurrentRoot) {
+      // Check pruned version
+      return { filteredPrunedRoot: null, filteredOutPrunedRoot: null };
+    }
     if (!filterIsOn) {
-      return { filteredRoot: currentRoot, filteredOutRoot: null };
+      return { filteredPrunedRoot: prunedCurrentRoot, filteredOutPrunedRoot: null };
     }
-    const matching = filterTree(currentRoot, debouncedSearchText, debouncedExtensionFilter, true); // Returns any
+    // Filter the pruned tree
+    const matching = filterTree(
+      prunedCurrentRoot,
+      debouncedSearchText,
+      debouncedExtensionFilter,
+      true
+    );
     if (!matching) {
-      return { filteredRoot: null, filteredOutRoot: currentRoot };
+      return { filteredPrunedRoot: null, filteredOutPrunedRoot: prunedCurrentRoot };
     }
-    const filteredOut = getFilteredOutTree(currentRoot, matching, true); // Returns any
+    // Get filtered out based on pruned original vs filtered result
+    const filteredOut = getFilteredOutTree(prunedCurrentRoot, matching, true);
     return {
-      filteredRoot: matching as NivoDataNode | null,
-      filteredOutRoot: filteredOut as NivoDataNode | null,
+      filteredPrunedRoot: matching as NivoDataNode | null,
+      filteredOutPrunedRoot: filteredOut as NivoDataNode | null,
     };
-  }, [currentRoot, debouncedSearchText, debouncedExtensionFilter]);
+  }, [prunedCurrentRoot, debouncedSearchText, debouncedExtensionFilter]); // Use prunedCurrentRoot
 
-  // Calculate total sizes (now depend on the combined memo results)
-  const totalSizeCurrent = useMemo(() => calculateNivoTreeSize(currentRoot), [currentRoot]);
-  const totalSizeFiltered = useMemo(() => calculateNivoTreeSize(filteredRoot), [filteredRoot]);
+  // Calculations use pruned data (no changes needed here)
+  const totalSizeCurrent = useMemo(
+    () => calculateNivoTreeSize(currentRoot), // Use UNPRUNED currentRoot for accurate total
+    [currentRoot] // Depend on unpruned currentRoot
+  );
+  const totalSizeFiltered = useMemo(
+    () => calculateNivoTreeSize(filteredPrunedRoot),
+    [filteredPrunedRoot]
+  );
   const totalSizeFilteredOut = useMemo(
-    () => calculateNivoTreeSize(filteredOutRoot),
-    [filteredOutRoot]
+    () => calculateNivoTreeSize(filteredOutPrunedRoot),
+    [filteredOutPrunedRoot]
   );
 
-  // Calculate extension sizes for the original data (for sorting dropdown)
+  // Original extension sizes still use original data
   const originalExtensionSizes = useMemo(() => {
     const sourceData = nivoData || (folderData ? toNivoTree(folderData, true) : null);
+    // Use the original, unpruned nivoData for calculating total extension sizes
     return calculateExtensionNivoSizes(sourceData);
   }, [folderData, nivoData]);
 
-  // Calculate options for the dropdown, sorted by size
+  // Extension options still based on original sizes
   const extensionOptions = useMemo(() => {
     const sortedExtensions = Object.entries(originalExtensionSizes)
       .map(([ext, size]) => ({ ext, size }))
@@ -412,14 +448,14 @@ const App: React.FC = () => {
     return sortedExtensions.map((item) => item.ext);
   }, [originalExtensionSizes]);
 
-  // Calculate extension sizes for filtered views (now depend on combined memo results)
+  // Filtered extension sizes use pruned data
   const filteredExtensionSizes = useMemo(
-    () => calculateExtensionNivoSizes(filteredRoot),
-    [filteredRoot]
+    () => calculateExtensionNivoSizes(filteredPrunedRoot),
+    [filteredPrunedRoot]
   );
   const filteredOutExtensionSizes = useMemo(
-    () => calculateExtensionNivoSizes(filteredOutRoot),
-    [filteredOutRoot]
+    () => calculateExtensionNivoSizes(filteredOutPrunedRoot),
+    [filteredOutPrunedRoot]
   );
 
   // --- Helper functions for rendering logic ---
@@ -675,14 +711,14 @@ const App: React.FC = () => {
               className={`flex flex-1 flex-col md:flex-row lg:flex-col xl:flex-row min-h-0 p-2 gap-4 md:gap-2 lg:gap-4 xl:gap-2`}
             >
               {/* Left Section / Top Section */}
-              {!isFilterActive() && currentRoot ? (
+              {!isFilterActive() && prunedCurrentRoot ? ( // Check prunedCurrentRoot
                 <div className="flex-1 flex flex-col min-h-0">
                   <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
                     Total: {formatSize(totalSizeCurrent)}
                   </h2>
                   <div className="flex-1 min-h-0">
                     <SunburstChart
-                      data={currentRoot}
+                      data={prunedCurrentRoot} // Use pruned data
                       onClick={handleClick}
                       arcLabel={arcLabel}
                       tooltip={SunburstTooltip}
@@ -690,23 +726,19 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ) : isFilterActive() ? (
-                // Make section flex-1, keep flex-col internally
                 <div className="flex-1 flex flex-col min-h-0 min-w-0">
-                  {filteredRoot ? (
-                    <>
-                      <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
-                        Matching Results ({formatSize(totalSizeFiltered)})
-                      </h2>
-                      {/* Inner chart wrapper still has flex-1 */}
-                      <div className="flex-1 min-h-0">
-                        <SunburstChart
-                          data={filteredRoot}
-                          onClick={handleClick}
-                          arcLabel={arcLabel}
-                          tooltip={SunburstTooltip}
-                        />
-                      </div>
-                    </>
+                  <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
+                    Matching Results ({formatSize(totalSizeFiltered)})
+                  </h2>
+                  {filteredPrunedRoot ? ( // Check filteredPrunedRoot
+                    <div className="flex-1 min-h-0">
+                      <SunburstChart
+                        data={filteredPrunedRoot} // Use pruned data
+                        onClick={handleClick}
+                        arcLabel={arcLabel}
+                        tooltip={SunburstTooltip}
+                      />
+                    </div>
                   ) : (
                     <div className="flex items-center justify-center text-gray-500 p-4">
                       No items match the current filter.
@@ -715,22 +747,26 @@ const App: React.FC = () => {
                 </div>
               ) : null}
 
-              {/* Right Section */}
-              {isFilterActive() && filteredOutRoot && (
+              {/* Right Section / Bottom Section - Filtered Out */}
+              {isFilterActive() && (
                 <div className="flex-1 flex flex-col min-h-0 min-w-0">
-                  {isFilterActive() && (
-                    <h2 className="text-center text-sm font-semibold text-gray-400 mb-1 shrink-0 h-5">
-                      Filtered Out ({formatSize(totalSizeFilteredOut)})
-                    </h2>
+                  <h2 className="text-center text-sm font-semibold text-gray-400 mb-1 shrink-0 h-5">
+                    Filtered Out ({formatSize(totalSizeFilteredOut)})
+                  </h2>
+                  {filteredOutPrunedRoot ? ( // Check filteredOutPrunedRoot
+                    <div className="flex-1 min-h-0 opacity-50">
+                      <SunburstChart
+                        data={filteredOutPrunedRoot} // Use pruned data
+                        onClick={handleClick} // Still allow click (uses original data)
+                        arcLabel={arcLabel}
+                        tooltip={SunburstTooltip}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center text-gray-500 p-4">
+                      All items match the current filter.
+                    </div>
                   )}
-                  <div className="flex-1 min-h-0 opacity-50">
-                    <SunburstChart
-                      data={filteredOutRoot}
-                      onClick={handleClick}
-                      arcLabel={arcLabel}
-                      tooltip={SunburstTooltip}
-                    />
-                  </div>
                 </div>
               )}
             </div>

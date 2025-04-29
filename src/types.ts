@@ -6,6 +6,7 @@ export interface TreeNode {
   children?: TreeNode[];
   size: number;
   key: string; // legacy, for compatibility
+  processingErrors?: string[]; // Add optional array for errors
 }
 
 export interface ApiResponse {

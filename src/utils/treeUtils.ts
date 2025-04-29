@@ -1,4 +1,4 @@
-import { TreeNode } from '../types'; // Adjust path as necessary
+import { TreeNode, NivoDataNode } from '../types'; // Adjust path as necessary
 
 /**
  * Calculates the display path by removing the base folder path prefix.
@@ -144,4 +144,175 @@ export const findNodeById = (node: any, targetId: string): any | null => {
   }
 
   return null;
+};
+
+/**
+ * Recursively counts the total number of nodes (including self) in a Nivo tree.
+ *
+ * @param node The current NivoDataNode.
+ * @returns The total count of nodes in the subtree starting at node.
+ */
+export const calculateNivoTreeNodeCount = (node: NivoDataNode | null): number => {
+  if (!node) return 0;
+
+  let count = 1; // Count the node itself
+
+  if (node.children && node.children.length > 0) {
+    count += node.children.reduce((sum: number, child: NivoDataNode) => {
+      return sum + calculateNivoTreeNodeCount(child); // Recursively add counts from children
+    }, 0);
+  }
+
+  return count;
+};
+
+/**
+ * Recursively prunes a Nivo tree to a maximum depth.
+ * Nodes deeper than maxDepth will not have their children included.
+ * Creates copies of nodes to avoid mutating the original tree.
+ *
+ * @param node The current NivoDataNode.
+ * @param maxDepth The maximum depth to keep (root is depth 0).
+ * @param currentDepth The current depth during recursion.
+ * @returns A pruned copy of the node, or null.
+ */
+function pruneRecursively(
+  node: NivoDataNode | null,
+  maxDepth: number,
+  currentDepth: number
+): NivoDataNode | null {
+  if (!node) return null;
+
+  // Create a shallow copy of the node
+  const newNode: NivoDataNode = { ...node };
+
+  // If we are beyond the max depth, clear children and return
+  if (currentDepth >= maxDepth) {
+    delete newNode.children; // Remove children array
+    return newNode;
+  }
+
+  // If node has children and we are within depth limit, recurse
+  if (newNode.children && newNode.children.length > 0) {
+    newNode.children = newNode.children
+      .map((child) => pruneRecursively(child, maxDepth, currentDepth + 1))
+      .filter((child): child is NivoDataNode => child !== null); // Filter out null results and ensure correct type
+
+    // If all children were pruned away deeper down, remove the children array
+    if (newNode.children.length === 0) {
+      delete newNode.children;
+    }
+  }
+
+  return newNode;
+}
+
+/**
+ * Prunes a Nivo-formatted tree to a specified maximum depth.
+ *
+ * @param rootNode The root NivoDataNode to prune.
+ * @param maxDepth The maximum depth to retain (root is depth 0).
+ * @returns A new tree pruned to the specified depth, or null if the input was null.
+ */
+export const pruneTreeDepth = (
+  rootNode: NivoDataNode | null,
+  maxDepth: number
+): NivoDataNode | null => {
+  if (!rootNode || maxDepth < 0) return rootNode; // Return original if null or invalid depth
+  // Use structuredClone for a deep copy before pruning to be extra safe
+  // regarding potential mutations if pruneRecursively had bugs (though it shouldn't)
+  const clonedRoot = structuredClone(rootNode);
+  return pruneRecursively(clonedRoot, maxDepth, 0); // Start recursion at depth 0
+};
+
+/**
+ * Recursively calculates the number of nodes at each depth level.
+ *
+ * @param node The current NivoDataNode.
+ * @param depthCounts An array where index = depth, value = count. Modified in place.
+ * @param currentDepth The current depth during recursion.
+ */
+function countNodesAtDepthRecursive(
+  node: NivoDataNode | null,
+  depthCounts: number[],
+  currentDepth: number
+): void {
+  if (!node) return;
+
+  // Ensure array is long enough
+  while (depthCounts.length <= currentDepth) {
+    depthCounts.push(0);
+  }
+  depthCounts[currentDepth]++; // Increment count at current depth
+
+  // Recurse for children
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      countNodesAtDepthRecursive(child, depthCounts, currentDepth + 1);
+    }
+  }
+}
+
+/**
+ * Calculates the number of nodes at each depth level for a Nivo tree.
+ *
+ * @param rootNode The root NivoDataNode.
+ * @returns An array where the index represents the depth (starting from 0 for the root)
+ *          and the value is the number of nodes at that depth.
+ */
+export const calculateNodesPerDepth = (rootNode: NivoDataNode | null): number[] => {
+  const depthCounts: number[] = [];
+  countNodesAtDepthRecursive(rootNode, depthCounts, 0);
+  return depthCounts;
+};
+
+/**
+ * Calculates the appropriate display depth for a Nivo tree based on node count.
+ * If the total node count exceeds the threshold, it determines the maximum depth
+ * that keeps the cumulative node count at or below the threshold.
+ *
+ * @param rootNode The root NivoDataNode.
+ * @param nodeCountThreshold The maximum allowed cumulative nodes before pruning.
+ * @param minPruneDepth The shallowest depth pruning is allowed to go (e.g., 3).
+ * @param fullDepth The depth value representing 'no pruning' (e.g., 1000).
+ * @returns The calculated depth (either fullDepth or a pruned depth >= minPruneDepth).
+ */
+export const calculateDynamicDepth = (
+  rootNode: NivoDataNode | null,
+  nodeCountThreshold: number,
+  minPruneDepth: number,
+  fullDepth: number
+): number => {
+  if (!rootNode) return fullDepth; // Default if no data
+
+  const totalNodeCount = calculateNivoTreeNodeCount(rootNode);
+  // console.log(`(Util) Current view total node count: ${totalNodeCount}`); // Keep log for now
+
+  // If total count is already below threshold, show full depth
+  if (totalNodeCount <= nodeCountThreshold) {
+    // console.log(`(Util) Node count <= threshold, using full depth: ${fullDepth}`);
+    return fullDepth;
+  }
+
+  // If count exceeds threshold, calculate nodes per depth
+  const nodesPerDepth = calculateNodesPerDepth(rootNode);
+  let cumulativeCount = 0;
+  let calculatedDepth = 0;
+
+  for (let depth = 0; depth < nodesPerDepth.length; depth++) {
+    cumulativeCount += nodesPerDepth[depth];
+    if (cumulativeCount <= nodeCountThreshold) {
+      calculatedDepth = depth;
+    } else {
+      // Stop as soon as cumulative count exceeds threshold
+      break;
+    }
+  }
+
+  // Ensure we don't prune too aggressively
+  const finalDepth = Math.max(minPruneDepth, calculatedDepth);
+  // console.log(
+  //   `(Util) Node count > threshold. Calculated depth: ${calculatedDepth}, Final prune depth: ${finalDepth}`
+  // );
+  return finalDepth;
 };

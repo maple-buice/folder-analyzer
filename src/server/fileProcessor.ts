@@ -1,4 +1,5 @@
-import fs from 'fs/promises'; // Use promises API
+import fsPromises from 'fs/promises'; // Use promises API
+import fs from 'fs'; // Import standard fs for types
 import path from 'path';
 import { TreeNode } from '../types';
 
@@ -13,94 +14,106 @@ import { TreeNode } from '../types';
  */
 export const processFilesAsync = async (
   folderPath: string,
-  excludedFolders: string[] = [] // Added parameter with default
+  excludedFolders: string[] = []
 ): Promise<{ node: TreeNode; errors: string[]; size: number }> => {
-  const fileMap: TreeNode[] = [];
-  let files: string[] = [];
   const errors: string[] = [];
-  let totalSize = 0; // Initialize total size for this directory
+  let dirents: fs.Dirent[] = [];
 
   try {
-    files = await fs.readdir(folderPath);
+    dirents = await fsPromises.readdir(folderPath, { withFileTypes: true });
   } catch (err: any) {
-    const errorMessage = `Error reading directory ${folderPath}: ${err.message}`;
+    const errorMessage = `Error reading directory ${folderPath}: ${err.message || err}`;
     console.error(errorMessage);
     errors.push(errorMessage);
     const root: TreeNode = {
       id: folderPath,
       name: path.basename(folderPath) || 'root',
       children: [],
-      size: 0, // Return 0 size for unreadable directory
+      size: 0,
       key: folderPath,
     };
-    return { node: root, errors, size: 0 }; // Return 0 size
+    return { node: root, errors, size: 0 };
   }
 
-  // Filter out excluded folder names *before* processing
-  const filesToProcess = files.filter((file) => !excludedFolders.includes(file));
+  const direntsToProcess = dirents.filter((dirent) => !excludedFolders.includes(dirent.name));
 
-  await Promise.all(
-    filesToProcess.map(async (file) => {
-      const fileName = typeof file === 'string' ? file : String(file);
-      const filePath = path.join(folderPath, fileName);
-      let stats;
+  const processingPromises = direntsToProcess.map(
+    async (
+      dirent: fs.Dirent
+    ): Promise<{ nodeData: TreeNode | null; size: number; error?: string }> => {
+      const filePath = path.join(folderPath, dirent.name);
+      let stats: fs.Stats;
 
       try {
-        stats = await fs.lstat(filePath);
-      } catch (err: any) {
-        const errorMessage = `Cannot access: ${filePath}: ${err.message}`;
-        console.error(errorMessage);
-        errors.push(errorMessage);
-        return; // Skip this file/dir, size remains 0 for it
-      }
+        stats = await fsPromises.lstat(filePath); // Use lstat from fsPromises
 
-      if (stats.isFile()) {
-        const fileSize = stats.size;
-        totalSize += fileSize; // Add file size to total
-        fileMap.push({
-          id: filePath,
-          name: fileName,
-          size: fileSize,
-          key: filePath,
-        });
-      } else if (stats.isDirectory()) {
-        try {
-          // Await recursive call and capture its result
+        if (stats.isFile()) {
+          return {
+            nodeData: { id: filePath, name: dirent.name, size: stats.size, key: filePath },
+            size: stats.size,
+          };
+        } else if (stats.isDirectory()) {
           const childResult = await processFilesAsync(filePath, excludedFolders);
-          errors.push(...childResult.errors); // Aggregate errors
-          totalSize += childResult.size; // Add subdirectory size to total
-
-          const childTree = childResult.node;
-          // Only add non-empty directories to the map to avoid clutter?
-          // Or use childResult.size > 0 ?
-          // Let's keep empty ones for now, consistent with original logic
-          fileMap.push({
-            id: filePath,
-            name: fileName,
-            children: childTree.children || [],
-            size: childResult.size, // Assign calculated size directly
-            key: filePath,
-          });
-        } catch (err: any) {
-          const errorMessage = `Error processing subdirectory ${filePath}: ${err.message}`;
-          console.error(errorMessage);
-          errors.push(errorMessage);
-          // Exclude this directory from size calculation if recursion failed
+          errors.push(...childResult.errors); // Aggregate errors immediately
+          return {
+            nodeData: {
+              id: filePath,
+              name: dirent.name,
+              children: childResult.node.children || [],
+              size: childResult.size,
+              key: filePath,
+              // processingErrors: childResult.errors.length > 0 ? childResult.errors : undefined,
+            },
+            size: childResult.size,
+          };
+        } else if (stats.isSymbolicLink()) {
+          console.log(`Skipping symbolic link: ${filePath}`);
+          return { nodeData: null, size: 0 };
+        } else {
+          console.log(`Skipping unknown type: ${filePath}`);
+          return { nodeData: null, size: 0 };
         }
-      } else if (stats.isSymbolicLink()) {
-        console.log(`Skipping symbolic link: ${filePath}`);
-        // Links are not added to fileMap and don't contribute size
+      } catch (err: any) {
+        const errorMessage = `Cannot access: ${filePath}: ${err.message || err}`;
+        console.error(errorMessage);
+        return { nodeData: null, size: 0, error: errorMessage };
       }
-    })
+    }
   );
+
+  const results = await Promise.all(processingPromises);
+
+  const childrenNodes: TreeNode[] = [];
+  let calculatedTotalSize = 0;
+  results.forEach((result) => {
+    if (result.nodeData) {
+      childrenNodes.push(result.nodeData);
+    }
+    calculatedTotalSize += result.size;
+    if (result.error) {
+      errors.push(result.error);
+    }
+  });
 
   const root: TreeNode = {
     id: folderPath,
     name: path.basename(folderPath) || 'root',
-    children: fileMap,
-    size: totalSize, // Assign the calculated total size
+    children: childrenNodes,
+    size: calculatedTotalSize,
     key: folderPath,
+    processingErrors: errors.length > 0 ? [...new Set(errors)] : undefined, // Add unique errors to node
   };
 
-  return { node: root, errors, size: totalSize }; // Return calculated size
+  return { node: root, errors: [...new Set(errors)], size: calculatedTotalSize }; // Return unique errors
 };
+
+/**
+ * Wrapper function for compatibility or semantic clarity.
+ * @returns A promise that resolves to the structure containing the TreeNode, errors, and size.
+ */
+export async function processDirectory(
+  folderPath: string,
+  excludedFolders: string[] = []
+): Promise<{ node: TreeNode; errors: string[]; size: number }> {
+  return processFilesAsync(folderPath, excludedFolders);
+}

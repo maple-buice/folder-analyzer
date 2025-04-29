@@ -1,83 +1,86 @@
-import fs from 'fs/promises'; // Use promises API for exists/stat check
-import { ApiResponse } from '../types'; // Adjust path as necessary
-import { processFilesAsync } from './fileProcessor'; // Import the async processor
-import { URLSearchParams } from 'url'; // Needed for parsing query params
+import fs from 'fs/promises';
+import path from 'path';
+import { processDirectory } from './fileProcessor';
+import { ApiResponse, TreeNode } from '../types';
 
 /**
- * API route handler for analyzing a folder.
- * Validates the path and calls the asynchronous file processor.
- * Accepts an 'exclude' query parameter with comma-separated folder names.
+ * Handles the logic for the /api/analyze-folder endpoint.
+ * Assumes routing/param extraction is done by the caller (e.g., Bun.serve routes).
  */
-export const handleAnalyzeFolder = async (req: Request): Promise<Response> => {
-  const url = new URL(req.url);
-  // Extract path param - assumes format /api/analyze-folder/:path
-  // This part might need adjustment based on Bun's exact routing/param handling.
-  // Let's assume the path is the last part after '/api/analyze-folder/'
-  const pathParts = url.pathname.split('/api/analyze-folder/');
-  const encodedPath = pathParts[1] || ''; // Get the part after the prefix
-  const folderPath = decodeURIComponent(encodedPath); // Decode the path
+export const handleAnalyzeFolder = async (request: Request): Promise<Response> => {
+  const url = new URL(request.url);
+  const headers = { 'Content-Type': 'application/json' };
 
-  const queryParams = new URLSearchParams(url.search);
-  const excludeQuery = queryParams.get('exclude') || '';
-  const excludedFolders = excludeQuery
+  // Extract path from the request URL (assuming it matches the route pattern)
+  const pathParts = url.pathname.split('/api/analyze-folder/');
+  const encodedPath = pathParts[1] || '';
+  if (!encodedPath) {
+    return new Response(
+      JSON.stringify({
+        message: 'Folder path parameter is missing',
+        tree: null,
+      } satisfies ApiResponse),
+      { status: 400, headers }
+    );
+  }
+  const folderPath = decodeURIComponent(encodedPath);
+
+  // --- Exclusions ---
+  const excludeQuery = url.searchParams.get('exclude') || '';
+  const exclusions = excludeQuery
     ? excludeQuery
         .split(',')
-        .map((f) => f.trim())
+        .map((s) => s.trim())
         .filter(Boolean)
     : [];
 
-  console.log(`Analyzing folder: ${folderPath}, Excluding: ${excludedFolders.join(', ')}`); // Log exclusions
+  console.log(
+    `API Handler: Analyzing folder: ${folderPath}, Excluding: ${exclusions.join(', ') || 'None'}`
+  );
 
   try {
-    // Check if path exists and is a directory using async stat
+    // --- Path Validation ---
     const stats = await fs.stat(folderPath);
     if (!stats.isDirectory()) {
-      return Response.json(
-        { message: 'Path is not a directory', tree: null } satisfies ApiResponse,
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ message: 'Path is not a directory', tree: null } satisfies ApiResponse),
+        { status: 400, headers }
       );
     }
 
-    // Path is valid, proceed with asynchronous analysis
-    // Pass excludedFolders to the processor
-    const { node: tree, errors: processErrors } = await processFilesAsync(
+    // --- Processing ---
+    // Use processDirectory which returns { node, errors, size }
+    const { node: treeNode, errors: processErrors } = await processDirectory(
       folderPath,
-      excludedFolders
+      exclusions
     );
 
-    // Return the tree and include any errors encountered during processing
-    return Response.json({
-      message: 'Folder analysis complete',
-      tree,
-      errors: processErrors,
-    } satisfies ApiResponse);
+    const responsePayload: ApiResponse = {
+      message: 'Analysis successful',
+      tree: treeNode, // Use the node from the result
+      errors: processErrors, // Use the errors from the result
+    };
+    return new Response(JSON.stringify(responsePayload), { status: 200, headers });
   } catch (err: any) {
-    // Handle errors from fs.stat (e.g., path doesn't exist) or fatal errors from processFilesAsync
-    if (err.code === 'ENOENT') {
-      return Response.json({ message: 'Folder does not exist', tree: null } satisfies ApiResponse, {
-        status: 404,
-      });
-    }
-    // Handle permission errors from fs.stat
-    if (err.code === 'EACCES') {
-      return Response.json(
-        {
-          message: `Permission denied accessing folder: ${folderPath}`,
-          tree: null,
-        } satisfies ApiResponse,
-        { status: 403 }
-      );
-    }
+    // --- Error Handling ---
+    let status = 500;
+    let message = `Error analyzing folder: ${err.message || 'Unknown error'}`;
+    const errorResponsePayload: ApiResponse = { message: '', tree: null, errors: [] };
 
-    // Catch other errors
-    console.error(`Error analyzing folder ${folderPath}:`, err);
-    return Response.json(
-      {
-        message: `Error analyzing folder: ${err.message || 'Unknown error'}`,
-        tree: null, // Explicitly null tree on general error
-        // errors: [err.message || 'Unknown error'] // Optionally include the fatal error message here too
-      } satisfies ApiResponse,
-      { status: 500 }
-    );
+    if (err.code === 'ENOENT') {
+      status = 404;
+      message = 'Folder does not exist';
+    } else if (err.code === 'EACCES') {
+      status = 403;
+      message = `Permission denied accessing folder: ${folderPath}`;
+    }
+    console.error(`API Handler Error processing ${folderPath}:`, err);
+
+    errorResponsePayload.message = message;
+    errorResponsePayload.errors = [message];
+
+    return new Response(JSON.stringify(errorResponsePayload), { status, headers });
   }
 };
+
+// Remove Bun.serve and export { fetchHandler } from here
