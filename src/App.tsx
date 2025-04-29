@@ -386,7 +386,7 @@ const App: React.FC = () => {
   );
 
   const arcLabel = useCallback((d: any) => {
-    const sizeStr = typeof d.data.value === 'number' ? formatSize(d.data.value) : 'N/A';
+    const sizeStr = typeof d.value === 'number' ? formatSize(d.value) : 'N/A';
     const nameStr = d.data.name || '';
     return `${nameStr}\n(${sizeStr})`;
   }, []);

@@ -34,22 +34,11 @@ export function filterTree(node: any, search: string, ext: string, isRoot = fals
 
     // Keep this internal node if: 1) It has filtered children OR 2) It's the root node and it matches the filter directly
     if (filteredChildren.length > 0 || (isRoot && passesFilter)) {
-      // Calculate the value based on the *sum* of the *kept* children
-      const totalValue = filteredChildren.reduce(
-        (acc: number, child: any) => acc + (child.value ?? 0),
-        0
-      );
       const result: any = { ...node, children: filteredChildren };
 
-      // Assign value only if there are children contributing to it.
-      // Nivo generally derives internal node values from children.
-      if (filteredChildren.length > 0) {
-        result.value = totalValue;
-      } else {
-        // If it's the root and matches textually but has no matching children,
-        // include it structurally but without a value (Nivo might not render the arc).
-        delete result.value;
-      }
+      // Nivo might implicitly calculate parent value from leaves, so remove explicit value
+      delete result.value; // Explicitly remove any potentially copied value
+
       return result;
     }
     return null; // This internal node and its children don't match
@@ -108,20 +97,14 @@ export function getFilteredOutTree(
   // If any children were filtered out (or contained filtered-out descendants),
   // reconstruct this node with only the filtered-out children.
   if (filteredOutChildren.length > 0) {
-    // Calculate the value based on the sum of the filtered-out children
-    const totalValue = filteredOutChildren.reduce(
-      (acc: number, child: any) => acc + (child.value ?? 0),
-      0
-    );
     const result: any = {
       ...originalNode, // Keep original id, name
       children: filteredOutChildren,
-      value: totalValue, // Value represents the size of the filtered-out parts
     };
-    // Nivo doesn't need a value on the absolute root if it has children
-    if (isRoot && result.children?.length > 0) {
-      delete result.value;
-    }
+
+    // Nivo might implicitly calculate parent value from leaves, so remove explicit value
+    delete result.value; // Explicitly remove any potentially copied value
+
     return result;
   }
 

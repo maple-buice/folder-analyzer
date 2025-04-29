@@ -55,15 +55,9 @@ export const getExtensionsFromTree = (
  */
 export function toNivoTree(node: TreeNode, isRoot = false): any {
   if (node.children && node.children.length > 0) {
-    // Directory node: recurse for children and sum their values
+    // Directory node: recurse for children
     const children = node.children.map((child) => toNivoTree(child, false)); // Recursive call
-    const totalValue = children.reduce((acc: number, child: any) => acc + (child.value ?? 0), 0);
     const result: any = { id: node.id, name: node.name, children };
-    // Assign the summed value to the parent, unless it's the root node
-    // Nivo typically doesn't require a value on the absolute root if it has children
-    if (!isRoot) {
-      result.value = totalValue;
-    }
     return result;
   }
   // Leaf node (file): return its basic info including size as value
