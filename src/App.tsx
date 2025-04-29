@@ -6,31 +6,10 @@ import { TreeNode, ApiResponse } from './types';
 // --- Constants ---
 const VALUE_KEY = 'value';
 
-// --- Utility Functions (move to utils/tree.ts if desired) ---
-const formatSize = (bytes: number) => {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  return `${(bytes / 1024).toFixed(2)} KB`;
-};
-
-const getDisplayPath = (fullPath: string, folderPath: string) => {
-  if (!folderPath) return fullPath;
-  const prefix = folderPath.endsWith('/') ? folderPath : folderPath + '/';
-  return fullPath.startsWith(prefix) ? fullPath.slice(prefix.length) : fullPath;
-};
-
-const getExtensionsFromTree = (
-  node: TreeNode | null,
-  extensions = new Set<string>()
-): Set<string> => {
-  if (!node) return extensions;
-  if (node.children && node.children.length > 0) {
-    node.children.forEach((child) => getExtensionsFromTree(child, extensions));
-  } else if (node.name && node.name.includes('.')) {
-    const ext = node.name.slice(node.name.lastIndexOf('.')).toLowerCase();
-    extensions.add(ext);
-  }
-  return extensions;
-};
+// --- Import Utilities ---
+import { formatSize } from './utils/formatting';
+import { getDisplayPath, getExtensionsFromTree, toNivoTree } from './utils/treeUtils';
+import { filterTree, getFilteredOutTree } from './utils/filterUtils';
 
 // --- Components ---
 const FolderInput: React.FC<{
@@ -222,104 +201,6 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // --- Tree Conversion ---
-  function toNivoTree(node: TreeNode, isRoot = false): any {
-    if (node.children && node.children.length > 0) {
-      const children = node.children.map((child) => toNivoTree(child, false));
-      const totalValue = children.reduce((acc: number, child: any) => acc + (child.value ?? 0), 0);
-      const result: any = { id: node.id, name: node.name, children };
-      if (!isRoot) result.value = totalValue;
-      return result;
-    }
-    return { id: node.id, name: node.name, value: node.size ?? 1 };
-  }
-
-  // --- Filtering ---
-  function filterTree(node: any, search: string, ext: string, isRoot = false): any | null {
-    if (!node) return null;
-    const searchLower = search ? search.toLowerCase() : '';
-    const extLower = ext ? (ext.startsWith('.') ? ext.toLowerCase() : '.' + ext.toLowerCase()) : '';
-    const matchesText =
-      !searchLower ||
-      node.name.toLowerCase().includes(searchLower) ||
-      node.id.toLowerCase().includes(searchLower);
-    const matchesExt =
-      !extLower || (node.children ? false : node.name.toLowerCase().endsWith(extLower));
-    const passesFilter = matchesText && matchesExt;
-
-    if (node.children && node.children.length > 0) {
-      const filteredChildren = node.children
-        .map((child: any) => filterTree(child, search, ext, false))
-        .filter(Boolean);
-
-      if (filteredChildren.length > 0 || (isRoot && passesFilter)) {
-        const totalValue = filteredChildren.reduce(
-          (acc: number, child: any) => acc + (child.value ?? 0),
-          0
-        );
-        const result: any = { ...node, children: filteredChildren };
-        if (filteredChildren.length > 0) {
-          result.value = totalValue;
-        } else {
-          delete result.value;
-        }
-        return result;
-      }
-      return null; // Node and its children don't match
-    }
-
-    // Leaf node
-    return passesFilter ? node : null;
-  }
-
-  function getFilteredOutTree(originalNode: any, filteredNode: any, isRoot = false): any | null {
-    if (!originalNode) return null;
-
-    // If the filtered node doesn't exist, the original node was entirely filtered out
-    if (!filteredNode) {
-      return originalNode;
-    }
-
-    // If it's a leaf node and it exists in the filtered tree, it wasn't filtered out
-    if (!originalNode.children || originalNode.children.length === 0) {
-      return null;
-    }
-
-    // If it's an internal node, compare children
-    const filteredOutChildren: any[] = [];
-    const filteredChildrenMap = new Map(
-      filteredNode.children?.map((child: any) => [child.id, child]) ?? []
-    );
-
-    for (const originalChild of originalNode.children) {
-      const filteredChild = filteredChildrenMap.get(originalChild.id);
-      const filteredOutSubtree = getFilteredOutTree(originalChild, filteredChild, false);
-      if (filteredOutSubtree) {
-        filteredOutChildren.push(filteredOutSubtree);
-      }
-    }
-
-    if (filteredOutChildren.length > 0) {
-      const totalValue = filteredOutChildren.reduce(
-        (acc: number, child: any) => acc + (child.value ?? 0),
-        0
-      );
-      const result: any = {
-        ...originalNode,
-        children: filteredOutChildren,
-        value: totalValue, // Sum up the values of the filtered-out children
-      };
-      // Prevent assigning value to the root if children exist
-      if (isRoot && result.children?.length > 0) {
-        delete result.value;
-      }
-      return result;
-    }
-
-    // If no children were filtered out, this node itself wasn't (partially) filtered out
-    return null;
-  }
 
   // --- Drilldown ---
   const handleClick = (node: any) => {

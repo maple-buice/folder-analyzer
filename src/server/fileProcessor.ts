@@ -1,7 +1,7 @@
 import fs from 'fs/promises'; // Use promises API
 import path from 'path';
 import { TreeNode } from '../types'; // Adjust path as necessary
-import { calculateSize } from '../utils/tree'; // Adjust path as necessary
+import { calculateSize } from '../utils/tree'; // Assuming this path is correct as original
 
 /**
  * Asynchronously processes files and directories within a given folder path
