@@ -1,8 +1,8 @@
 import './index.css';
 import React, { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import { ResponsiveSunburst } from '@nivo/sunburst';
-import type { ComputedDatum, SunburstCustomLayerProps, DatumId } from '@nivo/sunburst'; // Import Nivo types
-import type { InheritedColorConfig, ColorModifier } from '@nivo/colors'; // Import color types
+import type { ComputedDatum } from '@nivo/sunburst'; // Import Nivo types
+import type { ColorModifier } from '@nivo/colors'; // Import color types
 import { TreeNode, ApiResponse } from './types';
 
 // --- Constants ---
@@ -26,7 +26,6 @@ interface NivoDataNode {
 import { formatSize } from './utils/formatting';
 import {
   getDisplayPath,
-  getExtensionsFromTree,
   toNivoTree,
   calculateNivoTreeSize,
   calculateExtensionNivoSizes,
