@@ -8,7 +8,13 @@ const VALUE_KEY = 'value';
 
 // --- Import Utilities ---
 import { formatSize } from './utils/formatting';
-import { getDisplayPath, getExtensionsFromTree, toNivoTree } from './utils/treeUtils';
+import {
+  getDisplayPath,
+  getExtensionsFromTree,
+  toNivoTree,
+  calculateNivoTreeSize,
+  calculateExtensionNivoSizes,
+} from './utils/treeUtils';
 import { filterTree, getFilteredOutTree } from './utils/filterUtils';
 
 // --- Components ---
@@ -101,12 +107,11 @@ const FilterBar: React.FC<{
 
 const DrilldownAlert: React.FC = () => (
   <div
-    className="bg-blue-950/40 text-blue-200 rounded-lg px-4 py-3 flex items-center gap-2 shadow-lg backdrop-blur-sm border border-blue-900/20"
+    className="text-blue-200 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs border border-blue-900/20 bg-blue-950/30"
     role="status"
-    aria-live="polite"
   >
     <svg
-      className="w-5 h-5 text-blue-400 flex-shrink-0"
+      className="w-3.5 h-3.5 text-blue-400 flex-shrink-0"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -117,8 +122,7 @@ const DrilldownAlert: React.FC = () => (
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
     </svg>
     <span>
-      <strong className="font-semibold">Drilldown enabled:</strong> Click a folder to zoom in. Use{' '}
-      <b>Back</b> to zoom out.
+      Click folder to zoom in. Use <b>Back</b> to zoom out.
     </span>
   </div>
 );
@@ -287,24 +291,62 @@ const App: React.FC = () => {
   // --- Memoized Data Calculations ---
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
 
-  const filteredRoot = useMemo(
-    () => filterTree(currentRoot, debouncedSearchText, debouncedExtensionFilter, true),
-    [currentRoot, debouncedSearchText, debouncedExtensionFilter]
+  // Combine filteredRoot and filteredOutRoot calculation into one memo
+  const { filteredRoot, filteredOutRoot } = useMemo(() => {
+    const filterIsOn = !!(debouncedSearchText || debouncedExtensionFilter);
+
+    if (!filterIsOn) {
+      // No filter: matching is current, filtered out is null
+      return { filteredRoot: currentRoot, filteredOutRoot: null };
+    }
+
+    // Filter is on: calculate matching part
+    const matching = filterTree(currentRoot, debouncedSearchText, debouncedExtensionFilter, true);
+
+    if (!matching) {
+      // Filter matched nothing: matching is null, filtered out is current
+      return { filteredRoot: null, filteredOutRoot: currentRoot };
+    }
+
+    // Filter matched something: calculate the difference for filtered out
+    const filteredOut = getFilteredOutTree(currentRoot, matching, true);
+    return { filteredRoot: matching, filteredOutRoot: filteredOut };
+  }, [currentRoot, debouncedSearchText, debouncedExtensionFilter]); // Depend only on view and filters
+
+  // Calculate total sizes (now depend on the combined memo results)
+  const totalSizeCurrent = useMemo(() => calculateNivoTreeSize(currentRoot), [currentRoot]);
+  const totalSizeFiltered = useMemo(() => calculateNivoTreeSize(filteredRoot), [filteredRoot]);
+  const totalSizeFilteredOut = useMemo(
+    () => calculateNivoTreeSize(filteredOutRoot),
+    [filteredOutRoot]
   );
 
-  const filteredOutRoot = useMemo(() => {
-    if (!debouncedSearchText && !debouncedExtensionFilter) {
-      return null;
-    }
-    return getFilteredOutTree(currentRoot, filteredRoot, true);
-  }, [currentRoot, filteredRoot, debouncedSearchText, debouncedExtensionFilter]);
-
-  const extensionOptions = useMemo(() => {
+  // Calculate extension sizes for the original data (for sorting dropdown)
+  const originalExtensionSizes = useMemo(() => {
     const sourceData = nivoData || (folderData ? toNivoTree(folderData, true) : null);
-    return Array.from(getExtensionsFromTree(sourceData)).sort();
+    return calculateExtensionNivoSizes(sourceData);
   }, [folderData, nivoData]);
 
+  // Calculate options for the dropdown, sorted by size
+  const extensionOptions = useMemo(() => {
+    const sortedExtensions = Object.entries(originalExtensionSizes)
+      .map(([ext, size]) => ({ ext, size }))
+      .sort((a, b) => b.size - a.size);
+    return sortedExtensions.map((item) => item.ext);
+  }, [originalExtensionSizes]);
+
+  // Calculate extension sizes for filtered views (now depend on combined memo results)
+  const filteredExtensionSizes = useMemo(
+    () => calculateExtensionNivoSizes(filteredRoot),
+    [filteredRoot]
+  );
+  const filteredOutExtensionSizes = useMemo(
+    () => calculateExtensionNivoSizes(filteredOutRoot),
+    [filteredOutRoot]
+  );
+
   // --- Helper functions for rendering logic ---
+  // isFilterActive can now use the debounced state directly
   const isFilterActive = (): boolean => !!(debouncedSearchText || debouncedExtensionFilter);
 
   // --- Tooltip and ArcLabel Callbacks ---
@@ -335,11 +377,18 @@ const App: React.FC = () => {
   // --- Render ---
   return (
     <div className="h-screen w-screen bg-[#0B1120] text-gray-100 overflow-hidden flex flex-col">
-      <header className="flex-none text-center py-4">
-        <h1 className="text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
+      {/* Header - Reduce bottom margin */}
+      <header className="flex-none text-center py-3 mb-1">
+        {' '}
+        {/* Reduced py and mb */}
+        <h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-lg">
+          {' '}
+          {/* Reduced text size */}
           Folder Sunburst Explorer
         </h1>
-        <p className="text-gray-400 max-w-2xl mx-auto text-sm px-4">
+        <p className="text-gray-400 max-w-2xl mx-auto text-xs px-4">
+          {' '}
+          {/* Reduced text size */}
           Instantly visualize your disk usage. Analyze any folder, then filter and drill down to
           find large files and folders fast.
         </p>
@@ -383,8 +432,60 @@ const App: React.FC = () => {
                 setExtensionFilter={setExtensionFilter}
                 extensionOptions={extensionOptions}
                 onClear={handleClearFilter}
-                loading={loading} // Pass loading state to disable filters during re-analysis? Currently allows interaction.
+                loading={loading}
               />
+            )}
+
+            {/* Display Extension Breakdown - Make Collapsible */}
+            {isFilterActive() && !loading && folderData && (
+              <div className="mt-4 space-y-2 text-xs">
+                {' '}
+                {/* Reduced space-y */}
+                {Object.keys(filteredExtensionSizes).length > 0 && (
+                  // Use <details> for collapsible section
+                  <details className="bg-gray-800/30 rounded-lg group">
+                    <summary className="p-2 cursor-pointer list-none font-semibold text-gray-300 group-open:border-b group-open:border-gray-700/50">
+                      Matching Extensions ({Object.keys(filteredExtensionSizes).length})
+                    </summary>
+                    <div className="p-2 pt-1.5">
+                      {' '}
+                      {/* Padding inside the details */}
+                      <ul className="space-y-0.5 max-h-24 overflow-y-auto text-gray-400">
+                        {Object.entries(filteredExtensionSizes)
+                          .sort(([, sizeA], [, sizeB]) => sizeB - sizeA)
+                          .map(([ext, size]) => (
+                            <li key={ext} className="flex justify-between">
+                              <span className="font-mono truncate pr-2">{ext}</span>
+                              <span className="font-mono shrink-0">{formatSize(size)}</span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  </details>
+                )}
+                {Object.keys(filteredOutExtensionSizes).length > 0 && (
+                  // Use <details> for collapsible section
+                  <details className="bg-gray-800/30 rounded-lg opacity-70 group">
+                    <summary className="p-2 cursor-pointer list-none font-semibold text-gray-400 group-open:border-b group-open:border-gray-700/50">
+                      Filtered Out Extensions ({Object.keys(filteredOutExtensionSizes).length})
+                    </summary>
+                    <div className="p-2 pt-1.5">
+                      {' '}
+                      {/* Padding inside the details */}
+                      <ul className="space-y-0.5 max-h-24 overflow-y-auto text-gray-500">
+                        {Object.entries(filteredOutExtensionSizes)
+                          .sort(([, sizeA], [, sizeB]) => sizeB - sizeA)
+                          .map(([ext, size]) => (
+                            <li key={ext} className="flex justify-between">
+                              <span className="font-mono truncate pr-2">{ext}</span>
+                              <span className="font-mono shrink-0">{formatSize(size)}</span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  </details>
+                )}
+              </div>
             )}
 
             {/* Back button - only shown when drilled down AND input is hidden */}
@@ -441,8 +542,8 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Chart Area */}
-        <div className="flex-1 min-h-0 min-w-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 flex flex-col overflow-hidden h-full">
+        {/* Chart Area - Enable overflow */}
+        <div className="flex-1 min-h-0 min-w-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 flex flex-col overflow-auto">
           {/* Loading State */}
           {loading && (
             <div className="flex items-center justify-center h-screen">
@@ -464,26 +565,36 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* Data Loaded State */}
+          {/* Data Loaded State - Remove h-screen, Keep flex-1 */}
           {!loading && !error && folderData && (
-            <div className={`flex h-screen flex-col xl:flex-row min-h-0 p-2 gap-4 xl:gap-2`}>
-              {/* === Left Section (No Filter OR Matching Results / No Match Message) === */}
+            <div
+              // Apply multi-breakpoint flex direction and gap
+              className={`flex flex-1 flex-col md:flex-row lg:flex-col xl:flex-row min-h-0 p-2 gap-4 md:gap-2 lg:gap-4 xl:gap-2`}
+            >
+              {/* Left Section / Top Section */}
               {!isFilterActive() && currentRoot ? (
-                <div className="flex-1 min-h-0">
-                  <SunburstChart
-                    data={currentRoot}
-                    onClick={handleClick}
-                    arcLabel={arcLabel}
-                    tooltip={SunburstTooltip}
-                  />
-                </div>
-              ) : isFilterActive() ? (
                 <div className="flex-1 flex flex-col min-h-0">
                   <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
-                    Matching Results
+                    Total: {formatSize(totalSizeCurrent)}
                   </h2>
+                  <div className="flex-1 min-h-0">
+                    <SunburstChart
+                      data={currentRoot}
+                      onClick={handleClick}
+                      arcLabel={arcLabel}
+                      tooltip={SunburstTooltip}
+                    />
+                  </div>
+                </div>
+              ) : isFilterActive() ? (
+                // Make section flex-1, keep flex-col internally
+                <div className="flex-1 flex flex-col min-h-0 min-w-0">
                   {filteredRoot ? (
                     <>
+                      <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
+                        Matching Results ({formatSize(totalSizeFiltered)})
+                      </h2>
+                      {/* Inner chart wrapper still has flex-1 */}
                       <div className="flex-1 min-h-0">
                         <SunburstChart
                           data={filteredRoot}
@@ -501,14 +612,16 @@ const App: React.FC = () => {
                 </div>
               ) : null}
 
-              {/* === Right Section (Filtered Out Results) === */}
+              {/* Right Section */}
               {isFilterActive() && filteredOutRoot && (
-                <div className="flex-1 flex flex-col min-h-0">
+                // Make section flex-1, keep flex-col internally
+                <div className="flex-1 flex flex-col min-h-0 min-w-0">
                   {isFilterActive() && (
                     <h2 className="text-center text-sm font-semibold text-gray-400 mb-1 shrink-0 h-5">
-                      Filtered Out
+                      Filtered Out ({formatSize(totalSizeFilteredOut)})
                     </h2>
                   )}
+                  {/* Inner chart wrapper still has flex-1 */}
                   <div className="flex-1 min-h-0 opacity-50">
                     <SunburstChart
                       data={filteredOutRoot}

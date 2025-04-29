@@ -70,3 +70,59 @@ export function toNivoTree(node: TreeNode, isRoot = false): any {
   // Use a minimal value (e.g., 1) if size is missing or zero to ensure visibility
   return { id: node.id, name: node.name, value: node.size ?? 1 };
 }
+
+/**
+ * Recursively calculates the total size represented by a Nivo-formatted tree node
+ * by summing the 'value' of all leaf nodes within it.
+ *
+ * @param node The Nivo-formatted node (can have id, name, value, children).
+ * @returns The total size (sum of leaf values).
+ */
+export const calculateNivoTreeSize = (node: any): number => {
+  if (!node) return 0;
+
+  // If it's a leaf node (no children), return its value (or 0 if undefined)
+  if (!node.children || node.children.length === 0) {
+    return node.value ?? 0;
+  }
+
+  // If it's an internal node, recursively sum the sizes of its children
+  return node.children.reduce((sum: number, child: any) => {
+    return sum + calculateNivoTreeSize(child);
+  }, 0);
+};
+
+/**
+ * Recursively calculates the total size for each file extension within a Nivo tree.
+ *
+ * @param node The Nivo-formatted node to analyze.
+ * @param breakdown An object to accumulate sizes (used internally for recursion).
+ * @returns A record mapping file extensions (e.g., '.js') to their total size in bytes.
+ */
+export const calculateExtensionNivoSizes = (
+  node: any,
+  // Initialize with an empty object for the top-level call
+  breakdown: Record<string, number> = {}
+): Record<string, number> => {
+  if (!node) return breakdown;
+
+  // Leaf node: check for extension and add its value
+  if (!node.children || node.children.length === 0) {
+    if (node.name && node.name.includes('.')) {
+      const lastDotIndex = node.name.lastIndexOf('.');
+      if (lastDotIndex > 0) {
+        // Ensure dot isn't the first char
+        const ext = node.name.slice(lastDotIndex).toLowerCase();
+        const size = node.value ?? 0;
+        breakdown[ext] = (breakdown[ext] || 0) + size;
+      }
+    }
+  } else {
+    // Internal node: recurse through children
+    node.children.forEach((child: any) => {
+      calculateExtensionNivoSizes(child, breakdown); // Pass the same breakdown object down
+    });
+  }
+
+  return breakdown;
+};
