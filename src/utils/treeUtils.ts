@@ -126,3 +126,28 @@ export const calculateExtensionNivoSizes = (
 
   return breakdown;
 };
+
+/**
+ * Recursively searches a Nivo-formatted tree for a node with a specific ID.
+ *
+ * @param node The current node to examine.
+ * @param targetId The ID of the node to find.
+ * @returns The node object if found, otherwise null.
+ */
+export const findNodeById = (node: any, targetId: string): any | null => {
+  if (!node) return null;
+  if (node.id === targetId) {
+    return node;
+  }
+
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      const found = findNodeById(child, targetId);
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return null;
+};

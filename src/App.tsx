@@ -14,6 +14,7 @@ import {
   toNivoTree,
   calculateNivoTreeSize,
   calculateExtensionNivoSizes,
+  findNodeById,
 } from './utils/treeUtils';
 import { filterTree, getFilteredOutTree } from './utils/filterUtils';
 
@@ -271,12 +272,31 @@ const App: React.FC = () => {
     setDebouncedExtensionFilter('');
   }, []);
 
-  const handleClick = useCallback((node: any) => {
-    if (node.data.children && node.data.children.length > 0) {
-      setNodeStack((prevStack) => [...prevStack, node.data]);
-    }
-  }, []);
+  // const handleNoOpClick = useCallback(() => {}, []);
 
+  // --- Memoized Data Calculations ---
+  // Define currentRoot early as handleClick depends on it
+  const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
+
+  // Modify handleClick to find original node
+  const handleClick = useCallback(
+    (node: any) => {
+      // node is from Nivo onClick
+      if (!node || !node.id) return; // Guard against missing node or id
+
+      // Find the corresponding node in the *current unfiltered view*
+      const originalNode = findNodeById(currentRoot, node.id);
+
+      if (originalNode && originalNode.children && originalNode.children.length > 0) {
+        // If the original node is a directory, push ITS data onto the stack
+        setNodeStack((prevStack) => [...prevStack, originalNode]);
+      }
+      // If it's a file or not found, do nothing on click
+    },
+    [currentRoot]
+  ); // Dependency: currentRoot (to search in) and setNodeStack (stable)
+
+  // Restore handleBack definition
   const handleBack = useCallback(() => {
     setNodeStack((prevStack) => {
       if (prevStack.length > 1) {
@@ -284,12 +304,7 @@ const App: React.FC = () => {
       }
       return prevStack;
     });
-  }, []);
-
-  const handleNoOpClick = useCallback(() => {}, []);
-
-  // --- Memoized Data Calculations ---
-  const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;
+  }, []); // Dependency: setNodeStack (stable)
 
   // Combine filteredRoot and filteredOutRoot calculation into one memo
   const { filteredRoot, filteredOutRoot } = useMemo(() => {
@@ -297,6 +312,7 @@ const App: React.FC = () => {
 
     if (!filterIsOn) {
       // No filter: matching is current, filtered out is null
+      // Use the already defined currentRoot
       return { filteredRoot: currentRoot, filteredOutRoot: null };
     }
 
@@ -305,6 +321,7 @@ const App: React.FC = () => {
 
     if (!matching) {
       // Filter matched nothing: matching is null, filtered out is current
+      // Use the already defined currentRoot
       return { filteredRoot: null, filteredOutRoot: currentRoot };
     }
 
@@ -614,18 +631,16 @@ const App: React.FC = () => {
 
               {/* Right Section */}
               {isFilterActive() && filteredOutRoot && (
-                // Make section flex-1, keep flex-col internally
                 <div className="flex-1 flex flex-col min-h-0 min-w-0">
                   {isFilterActive() && (
                     <h2 className="text-center text-sm font-semibold text-gray-400 mb-1 shrink-0 h-5">
                       Filtered Out ({formatSize(totalSizeFilteredOut)})
                     </h2>
                   )}
-                  {/* Inner chart wrapper still has flex-1 */}
                   <div className="flex-1 min-h-0 opacity-50">
                     <SunburstChart
                       data={filteredOutRoot}
-                      onClick={handleNoOpClick}
+                      onClick={handleClick}
                       arcLabel={arcLabel}
                       tooltip={SunburstTooltip}
                     />
