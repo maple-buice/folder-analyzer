@@ -128,25 +128,27 @@ const SunburstChart: React.FC<{
   onClick: (node: any) => void;
   arcLabel: (d: any) => string;
   tooltip: (node: any) => React.ReactNode;
-}> = memo(({ data, onClick, arcLabel, tooltip }) => (
-  <ResponsiveSunburst
-    data={data}
-    value={VALUE_KEY}
-    cornerRadius={2}
-    borderColor={{ from: 'color', modifiers: [['darker', 0.6]] }}
-    colors={{ scheme: 'nivo' }}
-    childColor={{ from: 'color' }}
-    animate={true}
-    motionConfig="gentle"
-    onClick={onClick}
-    tooltip={tooltip}
-    enableArcLabels={true}
-    arcLabel={arcLabel}
-    arcLabelsSkipAngle={10}
-    arcLabelsRadiusOffset={0.8}
-    arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
-  />
-));
+}> = memo(({ data, onClick, arcLabel, tooltip }) => {
+  return (
+    <ResponsiveSunburst
+      data={data}
+      value={VALUE_KEY}
+      cornerRadius={2}
+      borderColor={{ from: 'color', modifiers: [['darker', 0.6]] }}
+      colors={{ scheme: 'nivo' }}
+      childColor={{ from: 'color' }}
+      animate={true}
+      motionConfig="gentle"
+      onClick={onClick}
+      tooltip={tooltip}
+      enableArcLabels={true}
+      arcLabel={arcLabel}
+      arcLabelsSkipAngle={10}
+      arcLabelsRadiusOffset={0.8}
+      arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+    />
+  );
+});
 
 // --- Main App ---
 const App: React.FC = () => {
@@ -343,10 +345,12 @@ const App: React.FC = () => {
         </p>
       </header>
 
-      {/* Remove explicit grid row sizing */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 p-4 pb-6 overflow-hidden">
-        {/* Controls Panel (Grid Item 1) */}
-        <div className="lg:sticky lg:top-4 overflow-y-auto">
+      {/* Main Content: Use Flexbox (col default, row on large) */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6 p-4 pb-6 overflow-hidden">
+        {/* Controls Panel (Flex Item 1) */}
+        <div className="lg:w-[350px] lg:shrink-0 lg:sticky lg:top-4 overflow-y-auto">
+          {' '}
+          {/* Define width & prevent shrinking on large screens */}
           <div className="bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl p-4 space-y-4 border border-gray-800/20">
             {/* Conditionally show Folder Input or Analyzed Path */}
             {showFolderInput ? (
@@ -413,7 +417,6 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-
           {/* Conditionally render DrilldownAlert only after successful analysis */}
           {!showFolderInput && folderData && (
             <div className="mt-4">
@@ -438,8 +441,8 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Chart Area (Grid Item 2) - Keep h-full */}
-        <div className="min-h-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 flex flex-col overflow-hidden h-full">
+        {/* Chart Area */}
+        <div className="flex-1 min-h-0 min-w-0 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-xl border border-gray-800/20 flex flex-col overflow-hidden h-full">
           {/* Loading State */}
           {loading && (
             <div className="flex items-center justify-center h-screen">
@@ -456,18 +459,14 @@ const App: React.FC = () => {
 
           {/* Initial State (No Data) */}
           {!loading && !error && !folderData && (
-            <div className="flex items-center justify-center h-screen text-gray-500">
+            <div className="flex items-center justify-center h-screen text-gray-500 p-4">
               Enter a folder path above and click "Analyze Folder" to start.
             </div>
           )}
 
           {/* Data Loaded State */}
           {!loading && !error && folderData && (
-            <div
-              className={`flex h-screen min-h-0 ${
-                isFilterActive() ? 'flex-row' : 'flex-col'
-              } p-2 gap-2`}
-            >
+            <div className={`flex h-screen flex-col xl:flex-row min-h-0 p-2 gap-4 xl:gap-2`}>
               {/* === Left Section (No Filter OR Matching Results / No Match Message) === */}
               {!isFilterActive() && currentRoot ? (
                 <div className="flex-1 min-h-0">
@@ -479,12 +478,12 @@ const App: React.FC = () => {
                   />
                 </div>
               ) : isFilterActive() ? (
-                <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
+                    Matching Results
+                  </h2>
                   {filteredRoot ? (
                     <>
-                      <h2 className="text-center text-sm font-semibold text-gray-300 mb-1 shrink-0 h-5">
-                        Matching Results
-                      </h2>
                       <div className="flex-1 min-h-0">
                         <SunburstChart
                           data={filteredRoot}
@@ -495,7 +494,7 @@ const App: React.FC = () => {
                       </div>
                     </>
                   ) : (
-                    <div className="flex-1 min-h-0 flex items-center justify-center text-gray-500">
+                    <div className="flex items-center justify-center text-gray-500 p-4">
                       No items match the current filter.
                     </div>
                   )}
@@ -504,7 +503,7 @@ const App: React.FC = () => {
 
               {/* === Right Section (Filtered Out Results) === */}
               {isFilterActive() && filteredOutRoot && (
-                <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 flex flex-col min-h-0">
                   {isFilterActive() && (
                     <h2 className="text-center text-sm font-semibold text-gray-400 mb-1 shrink-0 h-5">
                       Filtered Out
