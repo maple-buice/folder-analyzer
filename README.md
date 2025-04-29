@@ -24,7 +24,8 @@
 - **Clear Arc Labels:** Segment names and calculated sizes displayed on arcs.
 - **Extension Breakdown:** See total sizes per extension in filtered/unfiltered views.
 - **Responsive UI:** Built with React and Tailwind CSS for modern look and feel.
-- **Backend Error Handling:** Displays non-fatal errors from the backend (e.g., permission denied on specific subfolders).
+- **Local File Access:** Uses Node.js APIs executed by the Bun runtime to access the local file system.
+- **Error Handling:** Displays errors encountered during file system access (e.g., permission denied).
 
 ## Setup
 
@@ -34,31 +35,18 @@ Install dependencies:
 bun install
 ```
 
-Start the development server (frontend and Go backend concurrently):
+Start the application:
 
 ```bash
 bun dev
 ```
 
-Alternatively, run frontend only:
-
-```bash
-bun run dev:frontend
-```
-
-Or backend only:
-
-```bash
-bun run dev:backend
-```
-
 ## Usage
 
-1.  Ensure the backend is running (`bun dev` or `bun run dev:backend`).
-2.  Open the application in your browser (usually `http://localhost:5173` if using `bun dev`).
-3.  Enter the **absolute path** to the folder you want to analyze in the input box.
-4.  Click "Analyze".
-5.  Explore the sunburst chart:
+1.  Run `bun dev` to start the application.
+2.  Enter the **absolute path** to the folder you want to analyze in the input box.
+3.  Click "Analyze".
+4.  Explore the sunburst chart:
     *   Hover over arcs to see tooltips.
     *   Click a folder segment to zoom in.
     *   Use the **Back** button in the control panel to zoom out.
@@ -68,38 +56,30 @@ bun run dev:backend
 
 ## Tech Stack
 
+- **Runtime/Build/Serve:**
+    - [Bun](https://bun.sh/) (Runtime, bundler, package manager, script runner, server)
 - **Frontend:**
     - [React](https://react.dev/) (UI Library)
     - [TypeScript](https://www.typescriptlang.org/)
     - [Tailwind CSS](https://tailwindcss.com/) (Styling)
     - [Nivo Sunburst](https://nivo.rocks/sunburst/) (Visualization)
-    - [Vite](https://vitejs.dev/) (Build Tool / Dev Server)
-- **Backend:**
-    - [Go](https://go.dev/)
-    - Standard Library (file system access, JSON handling, HTTP server)
+- **Backend Logic (File System Access):**
+    - Node.js APIs (executed via `server.js` within the Bun runtime)
 - **Development:**
-    - [Bun](https://bun.sh/) (Runtime, package manager, script runner)
     - [ESLint](https://eslint.org/) / [Prettier](https://prettier.io/) (Linting / Formatting)
-    - [concurrently](https://github.com/open-cli-tools/concurrently) (Running frontend/backend together)
 
 ## Development Scripts
 
-- `bun dev`: Run frontend (Vite) and backend (Go) servers concurrently.
-- `bun run dev:frontend`: Run only the frontend Vite dev server.
-- `bun run dev:backend`: Run only the Go backend server.
-- `bun run build`: Build the frontend for production.
+- `bun dev`: Runs the application entry point (`src/index.tsx`) using Bun, which likely handles serving the frontend and running the backend logic.
+- `bun build`: Builds the application (see `build.ts` for details).
 - `bun run lint`: Lint the codebase.
 - `bun run format`: Format the codebase.
 - `bun run type-check`: Run TypeScript type checking.
-- `bun run test`: Run tests (if configured).
+- `bun run test`: Run tests using Jest.
 
-## API Example
+## API Interaction
 
-The backend exposes a single primary endpoint:
-
-```
-GET /api/analyze-folder/:encodedPath
-```
+The frontend communicates with backend logic (likely `server.js` executed by Bun) via standard `fetch` calls to an endpoint like `/api/analyze-folder/:encodedPath`.
 
 Where `:encodedPath` is the URL-encoded absolute path of the folder to analyze.
 
@@ -112,7 +92,7 @@ Where `:encodedPath` is the URL-encoded absolute path of the folder to analyze.
     "id": "/Users/mbuice/src", // Absolute path used as ID
     "name": "src",             // Base name of the folder
     "children": [
-      { "id": "/Users/mbuice/src/file1.go", "name": "file1.go", "size": 1024 },
+      { "id": "/Users/mbuice/src/file1.js", "name": "file1.js", "size": 1024 },
       {
         "id": "/Users/mbuice/src/subdir",
         "name": "subdir",
