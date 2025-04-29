@@ -149,8 +149,15 @@ const SunburstChart: React.FC<{
       enableArcLabels={true}
       arcLabel={arcLabel}
       arcLabelsSkipAngle={10}
-      arcLabelsRadiusOffset={0.8}
-      arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+      arcLabelsRadiusOffset={0.5}
+      arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 1.5]] }}
+      theme={{
+        labels: {
+          text: {
+            fontWeight: 'bolder',
+          },
+        },
+      }}
     />
   );
 });
