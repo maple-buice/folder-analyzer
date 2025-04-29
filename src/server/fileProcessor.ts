@@ -1,7 +1,6 @@
 import fs from 'fs/promises'; // Use promises API
 import path from 'path';
 import { TreeNode } from '../types';
-import { calculateSize } from '../utils/tree';
 
 /**
  * Asynchronously processes files and directories within a given folder path
@@ -9,89 +8,89 @@ import { calculateSize } from '../utils/tree';
  * Also collects any access errors encountered during processing.
  *
  * @param folderPath The absolute path to the folder to analyze.
- * @returns A Promise resolving to an object containing the `node` (TreeNode root) and an `errors` array (string messages).
+ * @param excludedFolders An array of folder names (case-sensitive) to skip.
+ * @returns A Promise resolving to an object containing the `node` (TreeNode root), an `errors` array, and the calculated `size`.
  */
 export const processFilesAsync = async (
-  folderPath: string
-): Promise<{ node: TreeNode; errors: string[] }> => {
+  folderPath: string,
+  excludedFolders: string[] = [] // Added parameter with default
+): Promise<{ node: TreeNode; errors: string[]; size: number }> => {
   const fileMap: TreeNode[] = [];
   let files: string[] = [];
   const errors: string[] = [];
+  let totalSize = 0; // Initialize total size for this directory
 
   try {
     files = await fs.readdir(folderPath);
   } catch (err: any) {
     const errorMessage = `Error reading directory ${folderPath}: ${err.message}`;
     console.error(errorMessage);
-    errors.push(errorMessage); // Add error to the list
-    // Cannot proceed further in this directory, return empty node structure with error
+    errors.push(errorMessage);
     const root: TreeNode = {
       id: folderPath,
       name: path.basename(folderPath) || 'root',
       children: [],
-      size: 0,
+      size: 0, // Return 0 size for unreadable directory
       key: folderPath,
     };
-    return { node: root, errors };
-    // Alternatively, re-throw if the API handler should treat this as a fatal error for the whole request
+    return { node: root, errors, size: 0 }; // Return 0 size
   }
 
-  // Process files and directories concurrently
+  // Filter out excluded folder names *before* processing
+  const filesToProcess = files.filter((file) => !excludedFolders.includes(file));
+
   await Promise.all(
-    files.map(async (file) => {
+    filesToProcess.map(async (file) => {
       const fileName = typeof file === 'string' ? file : String(file);
       const filePath = path.join(folderPath, fileName);
       let stats;
 
       try {
-        // Use lstat instead of stat to avoid following symlinks into potential loops
         stats = await fs.lstat(filePath);
       } catch (err: any) {
         const errorMessage = `Cannot access: ${filePath}: ${err.message}`;
         console.error(errorMessage);
         errors.push(errorMessage);
-        return; // Continue with the next file
+        return; // Skip this file/dir, size remains 0 for it
       }
 
       if (stats.isFile()) {
+        const fileSize = stats.size;
+        totalSize += fileSize; // Add file size to total
         fileMap.push({
           id: filePath,
           name: fileName,
-          size: stats.size,
+          size: fileSize,
           key: filePath,
         });
       } else if (stats.isDirectory()) {
-        // Directory: recurse asynchronously
         try {
-          const childResult = await processFilesAsync(filePath);
-          errors.push(...childResult.errors);
+          // Await recursive call and capture its result
+          const childResult = await processFilesAsync(filePath, excludedFolders);
+          errors.push(...childResult.errors); // Aggregate errors
+          totalSize += childResult.size; // Add subdirectory size to total
 
           const childTree = childResult.node;
-          const children = childTree.children || [];
-
-          if (children.length > 0) {
-            fileMap.push({
-              id: filePath,
-              name: fileName,
-              children: children,
-              size: 0,
-              key: filePath,
-            });
-          } else {
-            // Decide if we want to log/report empty directories that were successfully read
-          }
+          // Only add non-empty directories to the map to avoid clutter?
+          // Or use childResult.size > 0 ?
+          // Let's keep empty ones for now, consistent with original logic
+          fileMap.push({
+            id: filePath,
+            name: fileName,
+            children: childTree.children || [],
+            size: childResult.size, // Assign calculated size directly
+            key: filePath,
+          });
         } catch (err: any) {
-          // This catch might be less likely...
           const errorMessage = `Error processing subdirectory ${filePath}: ${err.message}`;
           console.error(errorMessage);
           errors.push(errorMessage);
+          // Exclude this directory from size calculation if recursion failed
         }
       } else if (stats.isSymbolicLink()) {
-        // Optional: Handle symbolic links specifically if needed
         console.log(`Skipping symbolic link: ${filePath}`);
-        // Optionally report skipped links
+        // Links are not added to fileMap and don't contribute size
       }
-      // Handle other file types (sockets, block devices etc.) if necessary
     })
   );
 
@@ -99,11 +98,9 @@ export const processFilesAsync = async (
     id: folderPath,
     name: path.basename(folderPath) || 'root',
     children: fileMap,
-    size: 0,
+    size: totalSize, // Assign the calculated total size
     key: folderPath,
   };
 
-  calculateSize(root);
-  // Return both the node and the collected errors
-  return { node: root, errors };
+  return { node: root, errors, size: totalSize }; // Return calculated size
 };

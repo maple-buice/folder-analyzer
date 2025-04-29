@@ -1,14 +1,33 @@
 import fs from 'fs/promises'; // Use promises API for exists/stat check
 import { ApiResponse } from '../types'; // Adjust path as necessary
 import { processFilesAsync } from './fileProcessor'; // Import the async processor
+import { URLSearchParams } from 'url'; // Needed for parsing query params
 
 /**
  * API route handler for analyzing a folder.
  * Validates the path and calls the asynchronous file processor.
+ * Accepts an 'exclude' query parameter with comma-separated folder names.
  */
-export const handleAnalyzeFolder = async (req: { params: { path: string } }): Promise<Response> => {
-  // Bun automatically decodes the path parameter
-  const folderPath = req.params.path;
+export const handleAnalyzeFolder = async (req: Request): Promise<Response> => {
+  const url = new URL(req.url);
+  // Extract path param - assumes format /api/analyze-folder/:path
+  // This part might need adjustment based on Bun's exact routing/param handling.
+  // Let's assume the path is the last part after '/api/analyze-folder/'
+  const pathParts = url.pathname.split('/api/analyze-folder/');
+  const encodedPath = pathParts[1] || ''; // Get the part after the prefix
+  const folderPath = decodeURIComponent(encodedPath); // Decode the path
+
+  const queryParams = new URLSearchParams(url.search);
+  const excludeQuery = queryParams.get('exclude') || '';
+  const excludedFolders = excludeQuery
+    ? excludeQuery
+        .split(',')
+        .map((f) => f.trim())
+        .filter(Boolean)
+    : [];
+
+  console.log(`Analyzing folder: ${folderPath}, Excluding: ${excludedFolders.join(', ')}`); // Log exclusions
+
   try {
     // Check if path exists and is a directory using async stat
     const stats = await fs.stat(folderPath);
@@ -20,8 +39,11 @@ export const handleAnalyzeFolder = async (req: { params: { path: string } }): Pr
     }
 
     // Path is valid, proceed with asynchronous analysis
-    // Capture the result object containing the node and any errors
-    const { node: tree, errors: processErrors } = await processFilesAsync(folderPath);
+    // Pass excludedFolders to the processor
+    const { node: tree, errors: processErrors } = await processFilesAsync(
+      folderPath,
+      excludedFolders
+    );
 
     // Return the tree and include any errors encountered during processing
     return Response.json({

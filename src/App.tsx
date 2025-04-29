@@ -12,6 +12,7 @@ const ARC_LABEL_RADIUS_OFFSET = 0.5;
 const ARC_LABEL_FONT_WEIGHT = 'bolder'; // Use constant
 // Explicitly type the modifier array to satisfy Nivo's expected type
 const ARC_LABEL_MODIFIER: ColorModifier[] = [['darker', 1.5]]; // Use constant
+const DEFAULT_EXCLUSIONS = ['node_modules', 'dist', 'target', '.git']; // Common folders to exclude by default
 
 // --- Import Utilities ---
 import { formatSize } from './utils/formatting';
@@ -134,6 +135,50 @@ const DrilldownAlert: React.FC = () => (
   </div>
 );
 
+// NEW: Exclusion Checkbox Component (or integrate into Controls Panel)
+const ExclusionCheckboxes: React.FC<{
+  exclusions: string[];
+  setExclusions: (value: string[]) => void;
+  options: string[];
+  loading: boolean;
+}> = ({ exclusions, setExclusions, options, loading }) => {
+  const handleCheckboxChange = (option: string, checked: boolean) => {
+    setExclusions(
+      checked
+        ? [...exclusions, option] // Add to exclusions
+        : exclusions.filter((item) => item !== option) // Remove from exclusions
+    );
+  };
+
+  return (
+    <div className="space-y-2 border-t border-gray-800/50 pt-3 mt-3">
+      <label className="block text-sm font-medium text-gray-300 mb-1">Exclude Folders:</label>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        {options.map((option) => (
+          <div key={option} className="flex items-center">
+            <input
+              id={`exclude-${option}`}
+              name={`exclude-${option}`}
+              type="checkbox"
+              checked={exclusions.includes(option)}
+              onChange={(e) => handleCheckboxChange(option, e.target.checked)}
+              disabled={loading}
+              className="h-4 w-4 rounded border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-800 disabled:opacity-50"
+            />
+            <label
+              htmlFor={`exclude-${option}`}
+              className="ml-2 block text-xs text-gray-400 select-none"
+            >
+              <code>{option}</code>
+            </label>
+          </div>
+        ))}
+      </div>
+      {/* Optional: Add input for custom exclusions later */}
+    </div>
+  );
+};
+
 const SunburstChart: React.FC<{
   // Data type updated slightly, could be NivoDataNode | null
   data: NivoDataNode | null;
@@ -185,6 +230,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [backendErrors, setBackendErrors] = useState<string[]>([]);
   const [showFolderInput, setShowFolderInput] = useState<boolean>(true);
+  const [excludedFolders, setExcludedFolders] = useState<string[]>(DEFAULT_EXCLUSIONS); // State for exclusions
 
   // Debounce Effect for Search and Extension Filters
   useEffect(() => {
@@ -240,7 +286,17 @@ const App: React.FC = () => {
       setBackendErrors([]);
       try {
         const encodedPath = encodeURIComponent(path);
-        const response = await fetch(`/api/analyze-folder/${encodedPath}`, {
+        // Build exclude query parameter
+        const excludeParam =
+          excludedFolders.length > 0
+            ? `?exclude=${encodeURIComponent(excludedFolders.join(','))}`
+            : '';
+        const apiUrl = `/api/analyze-folder/${encodedPath}${excludeParam}`; // Append query param
+
+        console.log(`Fetching: ${apiUrl}`); // Log the final URL
+
+        const response = await fetch(apiUrl, {
+          // Use updated URL
           headers: { 'Content-Type': 'application/json' },
         });
         const data: ApiResponse = await response.json();
@@ -280,7 +336,7 @@ const App: React.FC = () => {
         setLoading(false);
       }
     },
-    [handleAnalysisSuccess]
+    [handleAnalysisSuccess, excludedFolders]
   );
 
   // --- Drilldown & Filtering Logic Callbacks ---
@@ -445,6 +501,16 @@ const App: React.FC = () => {
                   Change
                 </button>
               </div>
+            )}
+
+            {/* Render ExclusionCheckboxes *before* analysis */}
+            {showFolderInput && (
+              <ExclusionCheckboxes
+                exclusions={excludedFolders}
+                setExclusions={setExcludedFolders}
+                options={DEFAULT_EXCLUSIONS} // Use default options for checkboxes
+                loading={loading}
+              />
             )}
 
             {/* Conditionally render FilterBar only after successful analysis */}
