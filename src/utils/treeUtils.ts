@@ -56,7 +56,7 @@ export const getExtensionsFromTree = (
 export function toNivoTree(node: TreeNode, isRoot = false): any {
   if (node.children && node.children.length > 0) {
     // Directory node: recurse for children
-    const children = node.children.map((child) => toNivoTree(child, false)); // Recursive call
+    const children = node.children.map((child) => toNivoTree(child, false));
     const result: any = { id: node.id, name: node.name, children };
     return result;
   }

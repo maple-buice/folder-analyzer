@@ -9,7 +9,7 @@ import { TreeNode, ApiResponse, NivoDataNode } from './types';
 const VALUE_KEY = 'value';
 const ARC_LABEL_SKIP_ANGLE = 10;
 const ARC_LABEL_RADIUS_OFFSET = 0.5;
-const ARC_LABEL_FONT_WEIGHT = 'bolder'; // Use constant for theme
+const ARC_LABEL_FONT_WEIGHT = 'bolder'; // Use constant
 // Explicitly type the modifier array to satisfy Nivo's expected type
 const ARC_LABEL_MODIFIER: ColorModifier[] = [['darker', 1.5]]; // Use constant
 
@@ -232,53 +232,56 @@ const App: React.FC = () => {
   }, []);
 
   // --- API Call (Updated) ---
-  const sendFolderPathToBackend = useCallback(async (path: string) => {
-    setLoading(true);
-    // Clear errors immediately for new request
-    setError(null);
-    setBackendErrors([]);
-    try {
-      const encodedPath = encodeURIComponent(path);
-      const response = await fetch(`/api/analyze-folder/${encodedPath}`, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data: ApiResponse = await response.json();
+  const sendFolderPathToBackend = useCallback(
+    async (path: string) => {
+      setLoading(true);
+      // Clear errors immediately for new request
+      setError(null);
+      setBackendErrors([]);
+      try {
+        const encodedPath = encodeURIComponent(path);
+        const response = await fetch(`/api/analyze-folder/${encodedPath}`, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data: ApiResponse = await response.json();
 
-      if (response.ok) {
-        if (data.tree) {
-          handleAnalysisSuccess(data.tree, path); // Use success handler
+        if (response.ok) {
+          if (data.tree) {
+            handleAnalysisSuccess(data.tree, path); // Use success handler
+          } else {
+            // Handle OK but no tree data case
+            setError(data.message || 'Analysis completed but no data received.');
+            setFolderData(null);
+            setNivoData(null);
+            setNodeStack([]);
+            setShowFolderInput(true); // Keep input visible
+          }
+          // Handle non-fatal backend processing errors even if tree exists
+          if (data.errors && data.errors.length > 0) {
+            setBackendErrors(data.errors);
+          }
         } else {
-          // Handle OK but no tree data case
-          setError(data.message || 'Analysis completed but no data received.');
+          // Handle non-OK response (4xx, 5xx)
+          setError(data.message || 'Unknown error from server');
           setFolderData(null);
           setNivoData(null);
           setNodeStack([]);
           setShowFolderInput(true); // Keep input visible
         }
-        // Handle non-fatal backend processing errors even if tree exists
-        if (data.errors && data.errors.length > 0) {
-          setBackendErrors(data.errors);
-        }
-      } else {
-        // Handle non-OK response (4xx, 5xx)
-        setError(data.message || 'Unknown error from server');
+      } catch (err: any) {
+        // Handle fetch/network errors
+        setError('Network or fetch error: ' + err.message);
         setFolderData(null);
         setNivoData(null);
         setNodeStack([]);
+        setBackendErrors([]);
         setShowFolderInput(true); // Keep input visible
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      // Handle fetch/network errors
-      setError('Network or fetch error: ' + err.message);
-      setFolderData(null);
-      setNivoData(null);
-      setNodeStack([]);
-      setBackendErrors([]);
-      setShowFolderInput(true); // Keep input visible
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [handleAnalysisSuccess]
+  );
 
   // --- Drilldown & Filtering Logic Callbacks ---
   const handleClearFilter = useCallback(() => {
@@ -287,8 +290,6 @@ const App: React.FC = () => {
     setExtensionFilter('');
     setDebouncedExtensionFilter('');
   }, []);
-
-  // const handleNoOpClick = useCallback(() => {}, []);
 
   // --- Memoized Data Calculations ---
   const currentRoot = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : nivoData;

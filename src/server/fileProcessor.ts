@@ -1,7 +1,7 @@
 import fs from 'fs/promises'; // Use promises API
 import path from 'path';
-import { TreeNode } from '../types'; // Adjust path as necessary
-import { calculateSize } from '../utils/tree'; // Assuming this path is correct as original
+import { TreeNode } from '../types';
+import { calculateSize } from '../utils/tree';
 
 /**
  * Asynchronously processes files and directories within a given folder path
@@ -16,7 +16,7 @@ export const processFilesAsync = async (
 ): Promise<{ node: TreeNode; errors: string[] }> => {
   const fileMap: TreeNode[] = [];
   let files: string[] = [];
-  const errors: string[] = []; // Initialize errors array
+  const errors: string[] = [];
 
   try {
     files = await fs.readdir(folderPath);
@@ -34,7 +34,6 @@ export const processFilesAsync = async (
     };
     return { node: root, errors };
     // Alternatively, re-throw if the API handler should treat this as a fatal error for the whole request
-    // throw new Error(errorMessage);
   }
 
   // Process files and directories concurrently
@@ -46,12 +45,11 @@ export const processFilesAsync = async (
 
       try {
         // Use lstat instead of stat to avoid following symlinks into potential loops
-        // or directories we don't want to analyze.
         stats = await fs.lstat(filePath);
       } catch (err: any) {
         const errorMessage = `Cannot access: ${filePath}: ${err.message}`;
         console.error(errorMessage);
-        errors.push(errorMessage); // Add error
+        errors.push(errorMessage);
         return; // Continue with the next file
       }
 
@@ -65,9 +63,7 @@ export const processFilesAsync = async (
       } else if (stats.isDirectory()) {
         // Directory: recurse asynchronously
         try {
-          // Await recursive call and capture its result (node and errors)
           const childResult = await processFilesAsync(filePath);
-          // Add errors from the child call to the current list
           errors.push(...childResult.errors);
 
           const childTree = childResult.node;
@@ -83,19 +79,17 @@ export const processFilesAsync = async (
             });
           } else {
             // Decide if we want to log/report empty directories that were successfully read
-            // console.log(`Skipping empty directory: ${filePath}`);
           }
         } catch (err: any) {
-          // This catch might be less likely if processFilesAsync handles its own readdir error,
-          // but keep for robustness.
+          // This catch might be less likely...
           const errorMessage = `Error processing subdirectory ${filePath}: ${err.message}`;
           console.error(errorMessage);
-          errors.push(errorMessage); // Add error
+          errors.push(errorMessage);
         }
       } else if (stats.isSymbolicLink()) {
         // Optional: Handle symbolic links specifically if needed
         console.log(`Skipping symbolic link: ${filePath}`);
-        // errors.push(`Skipped symbolic link: ${filePath}`); // Optionally report skipped links
+        // Optionally report skipped links
       }
       // Handle other file types (sockets, block devices etc.) if necessary
     })
