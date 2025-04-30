@@ -1,9 +1,8 @@
 import { processDirectory } from './fileProcessor';
-import { TreeNode } from '../types';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test'; // Import bun:test functions
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 
 // Define a base temporary directory for this test suite
 const testDirBase = path.join(os.tmpdir(), `folderAnalyzer-tests-${Date.now()}`);
@@ -40,7 +39,7 @@ describe('processDirectory - Integration with Temporary Files', () => {
     await fsPromises.writeFile(path.join(nestedPath, 'file1.txt'), 'nes50'); // 5 bytes
     await fsPromises.writeFile(path.join(nestedSubdirPath, 'file2.log'), 'logcontent150bytes'); // 18 bytes
     // excluded:
-    await fsPromises.writeFile(path.join(excludedPath, 'config.json'), '{\"a\":1}'); // 7 bytes
+    await fsPromises.writeFile(path.join(excludedPath, 'config.json'), '{"a":1}'); // 7 bytes
     await fsPromises.writeFile(path.join(excludedNodeModulesPath, 'some_dep.js'), 'ignore me'); // Should be ignored due to exclusion
     // links:
     await fsPromises.writeFile(path.join(linksPath, 'a_file.dat'), 'actual_data_123'); // 15 bytes
@@ -62,9 +61,8 @@ describe('processDirectory - Integration with Temporary Files', () => {
   it('should return an empty structure for an empty directory', async () => {
     const result = await processDirectory(emptyDirPath);
 
-    expect(result.node).toEqual<TreeNode>({
+    expect(result.node).toEqual({
       id: emptyDirPath,
-      key: emptyDirPath,
       name: 'emptyDir',
       size: 0,
       children: [],
@@ -141,7 +139,9 @@ describe('processDirectory - Integration with Temporary Files', () => {
     try {
       await fsPromises.lstat(linkFilePath);
       symlinkExists = true;
-    } catch {}
+    } catch (err) {
+      console.warn(`Could not create symlink for tests (common on Windows without admin): ${err}`);
+    }
 
     if (!symlinkExists) {
       console.warn('Skipping symlink test because link could not be created.');

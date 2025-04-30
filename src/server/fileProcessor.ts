@@ -21,8 +21,9 @@ export const processFilesAsync = async (
 
   try {
     dirents = await fsPromises.readdir(folderPath, { withFileTypes: true });
-  } catch (err: any) {
-    const errorMessage = `Error reading directory ${folderPath}: ${err.message || err}`;
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const errorMessage = `Error reading directory ${folderPath}: ${errorMsg}`;
     console.error(errorMessage);
     errors.push(errorMessage);
     const root: TreeNode = {
@@ -30,7 +31,6 @@ export const processFilesAsync = async (
       name: path.basename(folderPath) || 'root',
       children: [],
       size: 0,
-      key: folderPath,
     };
     return { node: root, errors, size: 0 };
   }
@@ -49,7 +49,7 @@ export const processFilesAsync = async (
 
         if (stats.isFile()) {
           return {
-            nodeData: { id: filePath, name: dirent.name, size: stats.size, key: filePath },
+            nodeData: { id: filePath, name: dirent.name, size: stats.size },
             size: stats.size,
           };
         } else if (stats.isDirectory()) {
@@ -61,7 +61,6 @@ export const processFilesAsync = async (
               name: dirent.name,
               children: childResult.node.children || [],
               size: childResult.size,
-              key: filePath,
               // processingErrors: childResult.errors.length > 0 ? childResult.errors : undefined,
             },
             size: childResult.size,
@@ -73,8 +72,9 @@ export const processFilesAsync = async (
           console.log(`Skipping unknown type: ${filePath}`);
           return { nodeData: null, size: 0 };
         }
-      } catch (err: any) {
-        const errorMessage = `Cannot access: ${filePath}: ${err.message || err}`;
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorMessage = `Cannot access: ${filePath}: ${errorMsg}`;
         console.error(errorMessage);
         return { nodeData: null, size: 0, error: errorMessage };
       }
@@ -100,7 +100,6 @@ export const processFilesAsync = async (
     name: path.basename(folderPath) || 'root',
     children: childrenNodes,
     size: calculatedTotalSize,
-    key: folderPath,
     processingErrors: errors.length > 0 ? [...new Set(errors)] : undefined, // Add unique errors to node
   };
 

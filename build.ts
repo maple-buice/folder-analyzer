@@ -41,7 +41,7 @@ const toCamelCase = (str: string): string => {
 };
 
 // Helper function to parse a value into appropriate type
-const parseValue = (value: string): any => {
+const parseValue = (value: string): unknown => {
   // Handle true/false strings
   if (value === 'true') return true;
   if (value === 'false') return false;
@@ -59,7 +59,7 @@ const parseValue = (value: string): any => {
 
 // Magical argument parser that converts CLI args to BuildConfig
 function parseArgs(): Partial<BuildConfig> {
-  const config: Record<string, any> = {};
+  const config: Record<string, unknown> = {};
   const args = process.argv.slice(2);
 
   for (let i = 0; i < args.length; i++) {
@@ -97,8 +97,12 @@ function parseArgs(): Partial<BuildConfig> {
     // Handle nested properties (e.g. --minify.whitespace)
     if (key.includes('.')) {
       const [parentKey, childKey] = key.split('.');
-      config[parentKey] = config[parentKey] || {};
-      config[parentKey][childKey] = parseValue(value);
+      // Ensure the parent key exists and is an object before assigning nested property
+      if (typeof config[parentKey] !== 'object' || config[parentKey] === null) {
+        config[parentKey] = {};
+      }
+      // We need to assert that config[parentKey] is an indexable type after the check
+      (config[parentKey] as Record<string, unknown>)[childKey] = parseValue(value);
     } else {
       config[key] = parseValue(value);
     }

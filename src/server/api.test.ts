@@ -8,12 +8,9 @@ import fsPromises from 'fs/promises';
 const testPath = '/test/path';
 const sampleTree: TreeNode = {
   id: testPath,
-  key: testPath,
   name: 'path',
   size: 100,
-  children: [
-    { id: `${testPath}/file.txt`, key: `${testPath}/file.txt`, name: 'file.txt', size: 100 },
-  ],
+  children: [{ id: `${testPath}/file.txt`, name: 'file.txt', size: 100 }],
 };
 const baseProcessDirResult = { node: sampleTree, errors: [], size: sampleTree.size };
 
@@ -39,7 +36,7 @@ describe('API Handler: handleAnalyzeFolder', () => {
     mockedProcessDirectory.mockClear();
     // Create spy on fsPromises.stat and set default implementation
     statSpy = spyOn(fsPromises, 'stat');
-    statSpy.mockResolvedValue(createMockStat(true) as any); // Default to existing directory
+    statSpy.mockResolvedValue(createMockStat(true) as unknown); // Default to existing directory
   });
 
   // Helper to create a mock Request object for a specific API path
@@ -136,7 +133,7 @@ describe('API Handler: handleAnalyzeFolder', () => {
   });
 
   it('should return 400 if path is not a directory', async () => {
-    statSpy.mockResolvedValueOnce(createMockStat(false) as any);
+    statSpy.mockResolvedValueOnce(createMockStat(false) as unknown);
     const request = createApiRequest(testPath);
 
     const response = await handleAnalyzeFolder(request);

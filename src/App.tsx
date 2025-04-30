@@ -26,8 +26,6 @@ import {
   calculateExtensionNivoSizes,
   findNodeById, // Note: findNodeById expects string ID
   pruneTreeDepth,
-  calculateNivoTreeNodeCount, // Import counter
-  calculateNodesPerDepth, // Import new util
   calculateDynamicDepth, // Import the new dynamic depth calculator
 } from './utils/treeUtils';
 import { filterTree, getFilteredOutTree } from './utils/filterUtils';
@@ -253,7 +251,7 @@ const App: React.FC = () => {
   // --- Handler for successful analysis ---
   const handleAnalysisSuccess = useCallback((treeData: TreeNode, path: string) => {
     setFolderData(treeData);
-    const nivoTree = toNivoTree(treeData, true); // Returns any
+    const nivoTree = toNivoTree(treeData); // Returns any
     setNivoData(nivoTree as NivoDataNode);
     setNodeStack([nivoTree as NivoDataNode]);
     setFolderPath(path);
@@ -331,9 +329,10 @@ const App: React.FC = () => {
           setNodeStack([]);
           setShowFolderInput(true); // Keep input visible
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Handle fetch/network errors
-        setError('Network or fetch error: ' + err.message);
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Network or fetch error: ${message}`);
         setFolderData(null);
         setNivoData(null);
         setNodeStack([]);
@@ -405,14 +404,13 @@ const App: React.FC = () => {
     const matching = filterTree(
       prunedCurrentRoot,
       debouncedSearchText,
-      debouncedExtensionFilter,
-      true
+      debouncedExtensionFilter
     );
     if (!matching) {
       return { filteredPrunedRoot: null, filteredOutPrunedRoot: prunedCurrentRoot };
     }
     // Get filtered out based on pruned original vs filtered result
-    const filteredOut = getFilteredOutTree(prunedCurrentRoot, matching, true);
+    const filteredOut = getFilteredOutTree(prunedCurrentRoot, matching);
     return {
       filteredPrunedRoot: matching as NivoDataNode | null,
       filteredOutPrunedRoot: filteredOut as NivoDataNode | null,
@@ -435,7 +433,7 @@ const App: React.FC = () => {
 
   // Original extension sizes still use original data
   const originalExtensionSizes = useMemo(() => {
-    const sourceData = nivoData || (folderData ? toNivoTree(folderData, true) : null);
+    const sourceData = nivoData || (folderData ? toNivoTree(folderData) : null);
     // Use the original, unpruned nivoData for calculating total extension sizes
     return calculateExtensionNivoSizes(sourceData);
   }, [folderData, nivoData]);

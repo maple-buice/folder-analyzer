@@ -1,3 +1,5 @@
+import { NivoDataNode } from '@/types';
+
 /**
  * Recursively filters a Nivo-formatted tree based on search text and extension.
  * Keeps nodes that match the criteria or have children that match.
@@ -10,12 +12,11 @@
  * @returns The filtered node (or null if the node and its descendants don't match).
  */
 export function filterTree(
-  node: any,
+  node: NivoDataNode | null,
   search: string,
   ext: string,
-  isRoot = false,
   parentMatchedText = false
-): any | null {
+): NivoDataNode | null {
   if (!node) return null;
 
   // Prepare filter criteria (lowercase)
@@ -37,9 +38,9 @@ export function filterTree(
     const passDownParentMatchedText = parentMatchedText || (matchesText && !!searchLower);
 
     // Recursively filter children
-    const filteredChildren = node.children
-      .map((child: any) => filterTree(child, search, ext, false, passDownParentMatchedText)) // Pass flag down
-      .filter(Boolean); // Remove null results (children that didn't match)
+    const filteredChildren: NivoDataNode[] = node.children
+      .map((child: NivoDataNode) => filterTree(child, search, ext, passDownParentMatchedText)) // Pass flag down
+      .filter(Boolean) as NivoDataNode[]; // Remove null results (children that didn't match)
 
     // Keep this internal node if:
     // 1. It has children that passed the filter OR
@@ -47,7 +48,7 @@ export function filterTree(
     const keepInternal = filteredChildren.length > 0 || (matchesText && !!searchLower);
 
     if (keepInternal) {
-      const result: any = { ...node, children: filteredChildren };
+      const result: NivoDataNode = { ...node, children: filteredChildren };
 
       // Nivo might implicitly calculate parent value from leaves, so remove explicit value
       delete result.value; // Explicitly remove any potentially copied value
@@ -84,11 +85,12 @@ export function filterTree(
  * @returns A Nivo-formatted node representing the filtered-out portion, or null if nothing was filtered out at this level.
  */
 export function getFilteredOutTree(
-  originalNode: any,
-  filteredNode: any,
-  isRoot = false
-): any | null {
-  if (!originalNode) return null; // Should not happen if called correctly
+  originalNode: NivoDataNode | null,
+  filteredNode: NivoDataNode | null
+): NivoDataNode | null {
+  if (!originalNode) {
+    return null; // Should not happen if called correctly
+  }
 
   // Case 1: Node exists in original but not in filtered -> It was entirely filtered out.
   if (!filteredNode) {
@@ -102,17 +104,18 @@ export function getFilteredOutTree(
   }
 
   // Case 3: Internal node exists in both original and filtered -> Compare children.
-  const filteredOutChildren: any[] = [];
+  const filteredOutChildren: NivoDataNode[] = [];
   // Create a map of filtered children for efficient lookup
   const filteredChildrenMap = new Map(
-    filteredNode.children?.map((child: any) => [child.id, child]) ?? []
+    filteredNode.children?.map((child: NivoDataNode) => [child.id, child]) ?? []
   );
 
   // Iterate through original children
   for (const originalChild of originalNode.children) {
-    const correspondingFilteredChild = filteredChildrenMap.get(originalChild.id);
+    const correspondingFilteredChild: NivoDataNode | null =
+      filteredChildrenMap.get(originalChild.id) || null;
     // Recursively find what was filtered out in the subtree
-    const filteredOutSubtree = getFilteredOutTree(originalChild, correspondingFilteredChild, false);
+    const filteredOutSubtree = getFilteredOutTree(originalChild, correspondingFilteredChild);
     if (filteredOutSubtree) {
       // If the recursive call returned a subtree, it means something was filtered out below this child
       filteredOutChildren.push(filteredOutSubtree);
@@ -122,7 +125,7 @@ export function getFilteredOutTree(
   // If any children were filtered out (or contained filtered-out descendants),
   // reconstruct this node with only the filtered-out children.
   if (filteredOutChildren.length > 0) {
-    const result: any = {
+    const result: NivoDataNode = {
       ...originalNode, // Keep original id, name
       children: filteredOutChildren,
     };

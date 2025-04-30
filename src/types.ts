@@ -5,14 +5,7 @@ export interface TreeNode {
   name: string;
   children?: TreeNode[];
   size: number;
-  key: string; // legacy, for compatibility
   processingErrors?: string[]; // Add optional array for errors
-}
-
-export interface ApiResponse {
-  message: string;
-  tree: TreeNode | null; // Allow null tree, e.g., on initial error
-  errors?: string[]; // Optional array for specific access errors during processing
 }
 
 // Add the centralized NivoDataNode interface
@@ -21,4 +14,10 @@ export interface NivoDataNode {
   name: string;
   children?: NivoDataNode[];
   value?: number; // Nivo uses 'value' for size, typically only on leaves
+}
+
+export interface ApiResponse {
+  message: string;
+  tree: TreeNode | null; // Allow null tree, e.g., on initial error
+  errors?: string[]; // Optional array for specific access errors during processing
 }

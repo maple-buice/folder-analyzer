@@ -27,13 +27,13 @@ const sampleTree: NivoDataNode = {
 describe('filterTree', () => {
   // Test Case 1: No filter
   it('should return the original tree when no filters are applied', () => {
-    const result = filterTree(sampleTree, '', '', true);
+    const result = filterTree(sampleTree, '', '');
     expect(result).toEqual(sampleTree); // Should be identical when no filter
   });
 
   // Test Case 2: Filter by text (name match)
   it('should filter nodes based on matching name text', () => {
-    const result = filterTree(sampleTree, 'file', '', true);
+    const result = filterTree(sampleTree, 'file', '');
     // Only file1.txt directly matches 'file'. folderA and its children do not.
     expect(result).toEqual({
       id: '/root',
@@ -48,7 +48,7 @@ describe('filterTree', () => {
 
   // Test Case 3: Filter by text (path/id match)
   it('should filter nodes based on matching path (id) text', () => {
-    const result = filterTree(sampleTree, 'folderA', '', true);
+    const result = filterTree(sampleTree, 'folderA', '');
     expect(result).toEqual({
       id: '/root',
       name: 'root',
@@ -71,7 +71,7 @@ describe('filterTree', () => {
 
   // Test Case 4: Filter by extension
   it('should filter nodes based on matching file extension', () => {
-    const result = filterTree(sampleTree, '', '.txt', true);
+    const result = filterTree(sampleTree, '', '.txt');
     expect(result).toEqual({
       id: '/root',
       name: 'root',
@@ -93,7 +93,7 @@ describe('filterTree', () => {
 
   // Test Case 5: Filter by text AND extension
   it('should filter nodes based on both text and extension', () => {
-    const result = filterTree(sampleTree, 'script', '.js', true);
+    const result = filterTree(sampleTree, 'script', '.js');
     expect(result).toEqual({
       id: '/root',
       name: 'root',
@@ -112,7 +112,7 @@ describe('filterTree', () => {
 
   // Test Case 6: Filter by text AND extension (no match)
   it('should return null if text and extension filter match nothing', () => {
-    const result = filterTree(sampleTree, 'image', '.txt', true);
+    const result = filterTree(sampleTree, 'image', '.txt');
     // folderA/image.jpg matches text but not ext
     // file1.txt, folderA/document.txt match ext but not text
     expect(result).toBeNull();
@@ -120,7 +120,7 @@ describe('filterTree', () => {
 
   // Test Case 7: Filter matching only a folder name but not its children
   it('should keep a folder if its name matches text, even if children do not match extension', () => {
-    const result = filterTree(sampleTree, 'folderA', '.js', true);
+    const result = filterTree(sampleTree, 'folderA', '.js');
     // Expect folderA because it matches text, but its children should be empty
     // because neither image.jpg nor document.txt match the .js extension filter.
     expect(result).toEqual({
@@ -138,13 +138,13 @@ describe('filterTree', () => {
 
   // Test Case 8: Empty input tree
   it('should return null for a null input node', () => {
-    const result = filterTree(null, 'test', '', true);
+    const result = filterTree(null, 'test', '');
     expect(result).toBeNull();
   });
 
   // Test Case 9: Case-insensitivity (Strict AND interpretation)
   it('should perform case-insensitive matching for text and extension', () => {
-    const result = filterTree(sampleTree, 'FOLDERA', '.TXT', true);
+    const result = filterTree(sampleTree, 'FOLDERA', '.TXT');
     // Expect folderA (matches text) containing document.txt (matches text AND extension).
     // file1.txt is excluded because it matches extension but NOT text.
     expect(result).toEqual({
@@ -170,22 +170,22 @@ describe('filterTree', () => {
 
 describe('getFilteredOutTree', () => {
   it('should return null if no filter was applied (filteredNode is same as original)', () => {
-    const filteredNode = filterTree(sampleTree, '', '', true); // No filter
-    const result = getFilteredOutTree(sampleTree, filteredNode, true);
+    const filteredNode = filterTree(sampleTree, '', ''); // No filter
+    const result = getFilteredOutTree(sampleTree, filteredNode);
     expect(result).toBeNull();
   });
 
   it('should return the original tree if the filter removed everything', () => {
-    const filteredNode = filterTree(sampleTree, 'nonexistent', '.xyz', true); // Matches nothing
-    const result = getFilteredOutTree(sampleTree, filteredNode, true);
+    const filteredNode = filterTree(sampleTree, 'nonexistent', '.xyz'); // Matches nothing
+    const result = getFilteredOutTree(sampleTree, filteredNode);
     // Expect the original structure back because everything was filtered out
     expect(result).toEqual(sampleTree);
   });
 
   it('should return the nodes that were filtered out by text', () => {
     // Filter BY 'folderA' (keeps folderA and its children)
-    const filteredNode = filterTree(sampleTree, 'folderA', '', true);
-    const result = getFilteredOutTree(sampleTree, filteredNode, true);
+    const filteredNode = filterTree(sampleTree, 'folderA', '');
+    const result = getFilteredOutTree(sampleTree, filteredNode);
 
     // Expect everything EXCEPT folderA and its children
     expect(result).toEqual({
@@ -212,8 +212,8 @@ describe('getFilteredOutTree', () => {
 
   it('should return the nodes that were filtered out by extension', () => {
     // Filter for '.txt' (keeps file1.txt, folderA->document.txt)
-    const filteredNode = filterTree(sampleTree, '', '.txt', true);
-    const result = getFilteredOutTree(sampleTree, filteredNode, true);
+    const filteredNode = filterTree(sampleTree, '', '.txt');
+    const result = getFilteredOutTree(sampleTree, filteredNode);
 
     // Expect everything EXCEPT the .txt files
     expect(result).toEqual({
@@ -243,8 +243,8 @@ describe('getFilteredOutTree', () => {
 
   it('should correctly identify filtered out parts with combined filters', () => {
     // Filter for text='script', ext='.js' (keeps folderB -> script.js)
-    const filteredNode = filterTree(sampleTree, 'script', '.js', true);
-    const result = getFilteredOutTree(sampleTree, filteredNode, true);
+    const filteredNode = filterTree(sampleTree, 'script', '.js');
+    const result = getFilteredOutTree(sampleTree, filteredNode);
 
     // Expect everything EXCEPT the branch kept by the filter (folderB -> script.js).
     // Since script.js was the only child of folderB and it was *not* filtered out,

@@ -13,7 +13,7 @@ import {
   calculateDynamicDepth, // Added import
 } from './treeUtils';
 import { TreeNode, NivoDataNode } from '../types'; // Import TreeNode and NivoDataNode
-import { mock, spyOn, beforeAll, afterAll, describe, it, expect } from 'bun:test'; // Add beforeAll/afterAll
+import { spyOn, beforeAll, afterAll, describe, it, expect } from 'bun:test'; // Add beforeAll/afterAll
 import path from 'path'; // Import the actual path module
 
 // Sample NivoDataNode data (uses NivoDataNode type)
@@ -44,26 +44,22 @@ const sampleTreeNode: TreeNode = {
   id: '/root',
   name: 'root',
   size: 520, // Total size
-  key: '/root', // Added key
   children: [
-    { id: '/root/file1.txt', name: 'file1.txt', size: 100, key: '/root/file1.txt' }, // Added key
+    { id: '/root/file1.txt', name: 'file1.txt', size: 100 }, // Added key
     {
       id: '/root/folderA',
       name: 'folderA',
       size: 350,
-      key: '/root/folderA', // Added key
       children: [
         {
           id: '/root/folderA/image.jpg',
           name: 'image.jpg',
           size: 200,
-          key: '/root/folderA/image.jpg',
         }, // Added key
         {
           id: '/root/folderA/document.txt',
           name: 'document.txt',
           size: 150,
-          key: '/root/folderA/document.txt',
         }, // Added key
       ],
     },
@@ -71,17 +67,15 @@ const sampleTreeNode: TreeNode = {
       id: '/root/folderB',
       name: 'folderB',
       size: 50,
-      key: '/root/folderB', // Added key
       children: [
         {
           id: '/root/folderB/script.js',
           name: 'script.js',
           size: 50,
-          key: '/root/folderB/script.js',
         }, // Added key
       ],
     },
-    { id: '/root/config.js', name: 'config.js', size: 20, key: '/root/config.js' }, // Added key
+    { id: '/root/config.js', name: 'config.js', size: 20 }, // Added key
   ],
 };
 
@@ -154,8 +148,7 @@ describe('getExtensionsFromTree', () => {
       id: '/root',
       name: 'root',
       size: 0,
-      key: '/root',
-      children: [{ id: '/root/folder', name: 'folder', size: 0, key: '/root/folder' }],
+      children: [{ id: '/root/folder', name: 'folder', size: 0 }],
     };
     expect(getExtensionsFromTree(treeWithoutFiles)).toEqual(new Set());
   });
@@ -171,8 +164,7 @@ describe('getExtensionsFromTree', () => {
       id: '/root',
       name: 'root',
       size: 100,
-      key: '/root',
-      children: [{ id: '/root/noext', name: 'noext', size: 100, key: '/root/noext' }],
+      children: [{ id: '/root/noext', name: 'noext', size: 100 }],
     };
     expect(getExtensionsFromTree(treeWithNoExt)).toEqual(new Set());
   });
@@ -182,8 +174,7 @@ describe('getExtensionsFromTree', () => {
       id: '/root',
       name: 'root',
       size: 10,
-      key: '/root',
-      children: [{ id: '/root/.env', name: '.env', size: 10, key: '/root/.env' }],
+      children: [{ id: '/root/.env', name: '.env', size: 10 }],
     };
     expect(getExtensionsFromTree(treeWithHidden)).toEqual(new Set());
   });
@@ -191,9 +182,9 @@ describe('getExtensionsFromTree', () => {
 
 describe('toNivoTree', () => {
   it('should convert TreeNode to NivoDataNode structure correctly', () => {
-    const result = toNivoTree(sampleTreeNode, true); // Pass isRoot = true for top level
+    const result = toNivoTree(sampleTreeNode);
     // Compare structure, ensuring 'value' is only on leaves
-    const expectedNivoStructure = {
+    const expectedNivoStructure: NivoDataNode = {
       id: '/root',
       name: 'root', // No value on root
       children: [
@@ -219,14 +210,18 @@ describe('toNivoTree', () => {
 
   it('should handle nodes with missing size (assign value 1)', () => {
     // Added key and size: undefined to satisfy TreeNode type
-    const nodeWithoutSize: TreeNode = { id: 'a', name: 'a.txt', key: 'a', size: undefined as any }; // Using undefined for size
+    const nodeWithoutSize: TreeNode = {
+      id: 'a',
+      name: 'a.txt',
+      size: undefined as never as number,
+    }; // Using undefined for size
     const result = toNivoTree(nodeWithoutSize);
     expect(result.value).toBe(1);
   });
 
   it('should handle nodes with zero size (assign value 1)', () => {
     // Added key to satisfy TreeNode type
-    const nodeWithZeroSize: TreeNode = { id: 'a', name: 'a.txt', size: 0, key: 'a' };
+    const nodeWithZeroSize: TreeNode = { id: 'a', name: 'a.txt', size: 0 };
     const result = toNivoTree(nodeWithZeroSize);
     expect(result.value).toBe(1);
   });
@@ -318,13 +313,13 @@ describe('findNodeById', () => {
   });
 
   it('should find a nested leaf node', () => {
-    const expectedNode = sampleNivoTree?.children?.[1]?.children?.[1]; // /root/folderA/document.txt
+    const expectedNode = sampleNivoTree?.children?.[1]?.children?.[1] || null; // /root/folderA/document.txt
     const result = findNodeById(sampleNivoTree, '/root/folderA/document.txt');
     expect(result).toEqual(expectedNode);
   });
 
   it('should find a nested internal node', () => {
-    const expectedNode = sampleNivoTree?.children?.[1]; // /root/folderA
+    const expectedNode = sampleNivoTree?.children?.[1] || null; // /root/folderA
     const result = findNodeById(sampleNivoTree, '/root/folderA');
     expect(result).toEqual(expectedNode);
   });

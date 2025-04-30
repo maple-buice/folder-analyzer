@@ -47,26 +47,26 @@ bun dev
 2.  Enter the **absolute path** to the folder you want to analyze in the input box.
 3.  Click "Analyze".
 4.  Explore the sunburst chart:
-    *   Hover over arcs to see tooltips.
-    *   Click a folder segment to zoom in.
-    *   Use the **Back** button in the control panel to zoom out.
-    *   Use the filter bar to search by name or select an extension.
-    *   Use the **Clear** button to remove filters.
-    *   Use the **Change** button next to the analyzed path to start a new analysis.
+    - Hover over arcs to see tooltips.
+    - Click a folder segment to zoom in.
+    - Use the **Back** button in the control panel to zoom out.
+    - Use the filter bar to search by name or select an extension.
+    - Use the **Clear** button to remove filters.
+    - Use the **Change** button next to the analyzed path to start a new analysis.
 
 ## Tech Stack
 
 - **Runtime/Build/Serve:**
-    - [Bun](https://bun.sh/) (Runtime, bundler, package manager, script runner, server)
+  - [Bun](https://bun.sh/) (Runtime, bundler, package manager, script runner, server)
 - **Frontend:**
-    - [React](https://react.dev/) (UI Library)
-    - [TypeScript](https://www.typescriptlang.org/)
-    - [Tailwind CSS](https://tailwindcss.com/) (Styling)
-    - [Nivo Sunburst](https://nivo.rocks/sunburst/) (Visualization)
+  - [React](https://react.dev/) (UI Library)
+  - [TypeScript](https://www.typescriptlang.org/)
+  - [Tailwind CSS](https://tailwindcss.com/) (Styling)
+  - [Nivo Sunburst](https://nivo.rocks/sunburst/) (Visualization)
 - **Backend Logic (File System Access):**
-    - Node.js APIs (executed via `server.js` within the Bun runtime)
+  - Node.js APIs (executed via `server.js` within the Bun runtime)
 - **Development:**
-    - [ESLint](https://eslint.org/) / [Prettier](https://prettier.io/) (Linting / Formatting)
+  - [ESLint](https://eslint.org/) / [Prettier](https://prettier.io/) (Linting / Formatting)
 
 ## Development Scripts
 
@@ -90,14 +90,14 @@ Where `:encodedPath` is the URL-encoded absolute path of the folder to analyze.
   "message": "Folder analysis complete",
   "tree": {
     "id": "/Users/mbuice/src", // Absolute path used as ID
-    "name": "src",             // Base name of the folder
+    "name": "src", // Base name of the folder
     "children": [
       { "id": "/Users/mbuice/src/file1.js", "name": "file1.js", "size": 1024 },
       {
         "id": "/Users/mbuice/src/subdir",
         "name": "subdir",
         "children": [
-           { "id": "/Users/mbuice/src/subdir/file2.txt", "name": "file2.txt", "size": 500 }
+          { "id": "/Users/mbuice/src/subdir/file2.txt", "name": "file2.txt", "size": 500 }
         ],
         "size": 500 // Directory size reflects sum of contents
       }

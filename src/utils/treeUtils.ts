@@ -1,4 +1,5 @@
 import { TreeNode, NivoDataNode } from '../types'; // Adjust path as necessary
+import path from 'path';
 
 /**
  * Calculates the display path by removing the base folder path prefix.
@@ -10,8 +11,7 @@ import { TreeNode, NivoDataNode } from '../types'; // Adjust path as necessary
  */
 export const getDisplayPath = (fullPath: string, folderPath: string): string => {
   if (!folderPath) return fullPath;
-  // NOTE: Relies on require('path').sep - ensure environment compatibility.
-  const separator = require('path').sep;
+  const separator = path.sep;
   const prefix = folderPath.endsWith(separator) ? folderPath : folderPath + separator;
   // Check if the fullPath actually starts with the prefix before slicing
   return fullPath.startsWith(prefix) ? fullPath.slice(prefix.length) : fullPath;
@@ -53,11 +53,11 @@ export const getExtensionsFromTree = (
  * @param isRoot Flag indicating if the current node is the root of the entire tree.
  * @returns An object formatted for Nivo Sunburst (id, name, value, children?).
  */
-export function toNivoTree(node: TreeNode, isRoot = false): any {
+export function toNivoTree(node: TreeNode): NivoDataNode {
   if (node.children && node.children.length > 0) {
     // Directory node: recurse for children
-    const children = node.children.map((child) => toNivoTree(child, false));
-    const result: any = { id: node.id, name: node.name, children };
+    const children = node.children.map((child) => toNivoTree(child));
+    const result: NivoDataNode = { id: node.id, name: node.name, children };
     return result;
   }
   // Leaf node (file): return its basic info including size as value
@@ -72,7 +72,7 @@ export function toNivoTree(node: TreeNode, isRoot = false): any {
  * @param node The Nivo-formatted node (can have id, name, value, children).
  * @returns The total size (sum of leaf values).
  */
-export const calculateNivoTreeSize = (node: any): number => {
+export const calculateNivoTreeSize = (node: NivoDataNode | null): number => {
   if (!node) return 0;
 
   // If it's a leaf node (no children), return its value (or 0 if undefined)
@@ -81,7 +81,7 @@ export const calculateNivoTreeSize = (node: any): number => {
   }
 
   // If it's an internal node, recursively sum the sizes of its children
-  return node.children.reduce((sum: number, child: any) => {
+  return node.children.reduce((sum: number, child: NivoDataNode | null) => {
     return sum + calculateNivoTreeSize(child);
   }, 0);
 };
@@ -94,7 +94,7 @@ export const calculateNivoTreeSize = (node: any): number => {
  * @returns A record mapping file extensions (e.g., '.js') to their total size in bytes.
  */
 export const calculateExtensionNivoSizes = (
-  node: any,
+  node: NivoDataNode | null,
   // Initialize with an empty object for the top-level call
   breakdown: Record<string, number> = {}
 ): Record<string, number> => {
@@ -113,7 +113,7 @@ export const calculateExtensionNivoSizes = (
     }
   } else {
     // Internal node: recurse through children
-    node.children.forEach((child: any) => {
+    node.children.forEach((child: NivoDataNode) => {
       calculateExtensionNivoSizes(child, breakdown); // Pass the same breakdown object down
     });
   }
@@ -128,7 +128,7 @@ export const calculateExtensionNivoSizes = (
  * @param targetId The ID of the node to find.
  * @returns The node object if found, otherwise null.
  */
-export const findNodeById = (node: any, targetId: string): any | null => {
+export const findNodeById = (node: NivoDataNode | null, targetId: string): NivoDataNode | null => {
   if (!node) return null;
   if (node.id === targetId) {
     return node;
